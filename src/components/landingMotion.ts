@@ -211,7 +211,7 @@ export function initLandingMotion(root: HTMLElement, field: DataField | null, op
     // A cursor that has arrived stays on its element while the page scrolls.
     for (const c of cursors) if (c.pin) c.mover.jump(at(c.pin.el, c.pin.fx, c.pin.fy));
   }
-  const say = (c: Cursor, text: string) => { if (c.say) { c.say.textContent = text ? ` · ${text}` : ''; } };
+  const say = (c: Cursor, text: string) => { if (c.say) { c.say.textContent = text; } };
   const press = async (c: Cursor) => { c.el.classList.add('is-pressing'); await wait(130); c.el.classList.remove('is-pressing'); };
   /** Moves a cursor to an element and stays with it while the page scrolls. */
   const visit = async (c: Cursor, el: Element | null, text: string, token: number, fx = 0.5, fy = 0.5) => {

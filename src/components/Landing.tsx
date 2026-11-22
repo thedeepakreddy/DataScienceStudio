@@ -10,7 +10,7 @@ import { STAGES, STAGE_ORDER } from '../stages';
 import { CAPABILITIES as ENGINE_CAPABILITIES } from '../engine/contract.generated';
 import { demoResults } from './welcomeDemo';
 import AppIcon from './AppIcon';
-import { ChatPanel, CleanPanel, CountUp, DashboardPanel, EnginePanel, Reveal, useInView } from './landingPanels';
+import { BoardPanel, ChatPanel, CleanPanel, CountUp, DashboardPanel, EnginePanel, Reveal, useInView } from './landingPanels';
 import { CursorGlyph } from './AgentCursor';
 import type { AgentRole } from '../swarm/agents';
 import { ThinkingOrb } from 'thinking-orbs';
@@ -344,7 +344,7 @@ const TEAM_POINTS = [
 ];
 
 /** The team: what they do, and every specialist in their colour. */
-function Team() {
+function Team({ demo }: { demo: ReturnType<typeof demoResults> }) {
   return (
     <section id="lp-team" data-cursor-scene="team" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 grid grid-cols-1 lg:grid-cols-[1fr_1.15fr] gap-12 items-start scroll-mt-24">
       <div data-reveal>
@@ -360,7 +360,8 @@ function Team() {
         </ul>
         <p className="mt-8 text-[16px]" style={{ color: C.mute }}>To give them a task in the studio, tap <span style={{ color: '#9db4e6' }}>Ask AI</span>, the floating button.</p>
       </div>
-      <div className="flex flex-wrap gap-2.5" style={{ perspective: 1200 }}>
+      <div data-tilt style={{ perspective: 1400 }}><BoardPanel demo={demo} /></div>
+      <div className="lg:col-span-2 flex flex-wrap gap-2.5" style={{ perspective: 1200 }}>
         {(Object.keys(AGENTS) as AgentRole[]).map(role => (
           <div key={role} data-burst data-agent-chip={AGENTS[role].name} title={AGENTS[role].focus}
             className="lp-chip lp-glass rounded-full pl-2.5 pr-4 py-2 flex items-center gap-2.5 text-[15px]" style={{ background: C.card }}>
@@ -382,7 +383,7 @@ function PageCursors() {
       {PAGE_CURSORS.map(role => (
         <div key={role} data-page-cursor={role} className="fixed left-0 top-0 will-change-transform" style={{ transform: 'translate3d(-120px,-120px,0)' }}>
           <CursorGlyph color={AGENTS[role].color} variant="solid" size={22} />
-          <span className="agent-tag" style={{ left: 15, top: 18 }}><span className="font-semibold">{AGENTS[role].name}</span><span className="opacity-80" data-say /></span>
+          <span className="lp-tag" style={{ '--c': AGENTS[role].color } as React.CSSProperties}><span className="lp-tag-name">{AGENTS[role].name}</span><span className="lp-tag-say" data-say /></span>
         </div>
       ))}
     </div>
@@ -421,7 +422,8 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       if (!calm && gpuMod.gpuFieldSupported()) {
         try {
           const tier = gpuMod.gpuTier();
-          gpu = await gpuMod.createGpuField(cv, { size: tier === 'high' ? 256 : tier === 'low' ? 128 : 72, r: demo.r, agentColors: colors, intro: true, bloom: tier === 'high', onIntroDone: reveal, introSpeed });
+          const forced = Number(new URLSearchParams(window.location.search).get('lpsize')) || 0;
+          gpu = await gpuMod.createGpuField(cv, { size: forced ? Math.min(256, Math.max(32, forced)) : tier === 'high' ? 256 : tier === 'low' ? 128 : 72, r: demo.r, agentColors: colors, intro: true, bloom: tier === 'high' || new URLSearchParams(window.location.search).get('lpbloom') === '1', onIntroDone: reveal, introSpeed });
           field = gpu;
         } catch (err) { console.warn('GPU field unavailable, using the simple field.', err); gpu = null; }
       }
@@ -455,6 +457,9 @@ export default function Landing({ onStart }: { onStart: () => void }) {
         else if (performance.now() - downAt < 400) gpu.shock(x, y, 1.4);
         holding = false; downAt = 0;
       };
+      // Full brightness in the hero; calmer behind the rest of the page so text stays readable.
+      const onScroll = () => gpu?.setDim(root.scrollTop < window.innerHeight * 0.5 ? 1 : 0.7);
+      root.addEventListener('scroll', onScroll, { passive: true });
       window.addEventListener('resize', onResize);
       root.addEventListener('pointermove', onMove);
       root.addEventListener('pointerleave', onLeave);
@@ -474,7 +479,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
         clearTimeout(safety);
         stopMotion();
         window.removeEventListener('resize', onResize); window.removeEventListener('pointerup', onUp);
-        root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerleave', onLeave); root.removeEventListener('pointerdown', onDown);
+        root.removeEventListener('scroll', onScroll); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerleave', onLeave); root.removeEventListener('pointerdown', onDown);
         field?.dispose();
       };
     }).catch(err => { console.error('Front page motion failed', err); reveal(); });
@@ -549,6 +554,8 @@ export default function Landing({ onStart }: { onStart: () => void }) {
 
       {/* Hero */}
       <section data-hero data-cursor-scene="hero" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 sm:pt-28 text-center min-h-[86vh]">
+        {/* A soft dark veil behind the headline, so it reads over the brightest part of the field. */}
+        <div aria-hidden="true" className="absolute inset-x-0 top-[6%] h-[82%] pointer-events-none -z-10" style={{ background: 'radial-gradient(60% 55% at 50% 48%, rgba(10,10,10,0.62), rgba(10,10,10,0.25) 55%, transparent 78%)' }} />
         <button type="button" onClick={start} data-hero-fade style={{ animationDelay: '80ms' }} className="lp-rise inline-flex items-center gap-2 sm:gap-3 h-11 pl-2 pr-2 rounded-full text-[13.5px] sm:text-[15px] lp-badge max-w-full">
           <span className="px-2.5 py-0.5 rounded-full text-[13px]" style={{ background: 'rgba(255,120,40,0.12)', color: '#ff7a2f' }}>New</span>
           <span className="whitespace-nowrap">Tableau and Power BI import</span>
@@ -585,7 +592,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
         </div>
       </section>
 
-      <Team />
+      <Team demo={demo} />
 
       <div className="relative z-10"><Marquee /></div>
 

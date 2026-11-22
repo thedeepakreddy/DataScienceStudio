@@ -1050,3 +1050,16 @@
   background: radial-gradient(520px circle at var(--mx, 50%) var(--my, -20%), rgba(255,255,255,0.075), transparent 42%);
 }
 @media (prefers-reduced-motion: reduce) { [data-landing] [data-tilt][data-stream]::before { animation: none; } }
+
+/* ---- Agent name tags on the front page: a pill in the agent's colour, like a collaborator's cursor ---- */
+.lp-tag {
+  position: absolute; left: 15px; top: 19px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  padding: 4px 10px 4px 9px; border-radius: 999px 999px 999px 4px; font-size: 12px; line-height: 1.25; font-weight: 500;
+  color: #fff; background: color-mix(in srgb, var(--c) 82%, white 18%);
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--c) 80%, transparent), 0 1px 2px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+  font-family: var(--font-sans); letter-spacing: -0.005em; max-width: 280px; overflow: hidden; text-overflow: ellipsis;
+}
+.lp-tag.small { left: 13px; top: 16px; font-size: 11px; padding: 3px 9px 3px 8px; }
+.lp-tag-name { font-weight: 650; }
+.lp-tag-say { font-weight: 450; opacity: 0.92; padding-left: 7px; border-left: 1px solid rgba(255,255,255,0.35); overflow: hidden; text-overflow: ellipsis; }
+.lp-tag-say:empty { display: none; }
