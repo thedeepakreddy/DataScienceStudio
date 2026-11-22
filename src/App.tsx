@@ -61,7 +61,7 @@ import AgentCursorLayer from './components/AgentCursorLayer';
 import SwarmTakeover from './components/SwarmTakeover';
 import WelcomeSwarm from './components/WelcomeSwarm';
 import { useSwarm } from './swarm/useSwarm';
-import { RUN_LOGGED_EVENT } from './swarm/interaction';
+import { OPEN_STEP_EVENT, RUN_LOGGED_EVENT } from './swarm/interaction';
 import { runSandboxedDatasetJs } from './utils/sandbox';
 import { datasetFromRecords } from './utils/csvParser';
 import type { RuntimePort } from './swarm/runtime';
@@ -118,6 +118,12 @@ export default function App() {
     setActiveTabState(tab);
     setVisited(prev => (prev.has(tab) ? prev : new Set(prev).add(tab)));
   }, []);
+  // A page can open another step (an imported workbook opens its dashboard).
+  useEffect(() => {
+    const onOpen = (e: Event) => { const step = (e as CustomEvent).detail?.step; if (step) setActiveTab(step as PipelineStage); };
+    window.addEventListener(OPEN_STEP_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_STEP_EVENT, onOpen);
+  }, [setActiveTab]);
 
   // Every stage opens at its title, and the stage bar keeps the current step in view.
   const stageBarRef = useRef<HTMLDivElement>(null);

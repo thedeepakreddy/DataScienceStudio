@@ -1,7 +1,7 @@
 # Engine capabilities
 
 Generated from engine 2.0.0 by `mlops_service/scripts/gen_contract.py`; do not edit by hand.
-65 capabilities. Run one with `POST /v2/run/{name}` (through the studio: `POST /api/engine/run/{name}`), or from the front end with `engine.run(name, params)` in `src/engine/client.ts`.
+66 capabilities. Run one with `POST /v2/run/{name}` (through the studio: `POST /api/engine/run/{name}`), or from the front end with `engine.run(name, params)` in `src/engine/client.ts`.
 
 ## bayes
 
@@ -163,6 +163,19 @@ Dataset: not needed · long-running (job by default) · not cached
 | `next_path` | `string \| null` |  | null | Where the next link or cursor is in the response, e.g. next or meta.next_cursor. |
 | `max_pages` | `number` |  | 50 |  |
 | `name` | `string \| null` |  | null |  |
+
+### `connect.bi` — Import a Tableau or Power BI workbook
+
+Reads the data a Tableau (.twbx, .hyper) or Power BI (.pbix) file carries into datasets, rebuilds its sheets or visuals as a studio dashboard where there is an equivalent chart, turns simple calculations and measures into KPI formulas, and reports what was converted, approximated or left out. A .twb holds no data, so only its structure is read.
+
+Dataset: not needed · long-running (job by default) · not cached
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `file_id` | `string \| null` |  | null | A file uploaded with POST /v2/files/upload (.twbx, .twb, .hyper or .pbix). |
+| `uri` | `string \| null` |  | null | Or a gs:// address of the file (for files too large to upload directly). |
+| `name` | `string \| null` |  | null | A name prefix for the imported tables. |
+| `max_rows` | `number` |  | 2000000 | Most rows to read from any one table. |
 
 ### `connect.bigquery` — Import from BigQuery
 

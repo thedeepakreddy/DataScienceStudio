@@ -147,6 +147,7 @@ Every number shown is computed from the sample. Then the team flies into the Ask
 The page puts the most-used actions first: add a file, try a sample, set a goal, then other sources.
 - **Files:** CSV/TSV (delimiter detected), Excel `.xlsx` (with a sheet picker), JSON / JSON Lines (nested objects flattened) and Parquet, parsed in the browser up to 100 MB. Larger files (several GB) go straight to the engine.
 - **Other sources, through the engine:** a web address; a **JSON API** (bearer token, key in a header or the address, or username and password; page numbers, offsets, *next* links or cursors; nested fields become columns; the key is never stored); PostgreSQL or MySQL (read-only `SELECT`); BigQuery; Google Cloud Storage. Every address is checked against private networks.
+- **Tableau and Power BI:** upload a packaged Tableau workbook (`.twbx`), a Tableau extract (`.hyper`) or a Power BI file (`.pbix`). The engine reads its data tables (Tableau's Hyper API, `pbixray` for Power BI), rebuilds each sheet or visual as a studio chart where there's a match (bar, line, area, scatter, pie, histogram, table, KPI cards), and translates simple calculations and DAX measures (`SUM`, `AVG`, `MIN`, `MAX`, `MEDIAN`, `COUNT`, `COUNT_DISTINCT` and arithmetic) into dashboard KPIs. A conversion report lists every sheet and calculation as rebuilt, a close match, or not rebuilt (with the reason, such as a level-of-detail expression or a map). **Open and build the dashboard** opens the main table and lays out the rebuilt charts and KPIs on the Dashboard step, where the numbers are recomputed from the data. A `.twb` alone has no data, so only its design is read. Workbooks are parsed safely (no XML entities, limits on archive size).
 - **Type detection** (numbers, categories, booleans, dates, ID-like columns) and **sample datasets**.
 
 ### 2. Clean
@@ -408,6 +409,7 @@ Tailwind CSS v4 is configured in `src/index.css`. There is no `tailwind.config.j
 - **Your work is stored in your browser.** It isn't synced across devices (use workspace export/import), and browser storage quotas apply.
 - **Free hosting:** the ML service sleeps when idle and has little memory, so very large datasets or training many models at once can be slow.
 - **Database and API imports** are copies taken when you import; to refresh them, re-import (Model → Automate can re-import on a schedule for public sources).
+- **Tableau and Power BI imports rebuild the essentials, not a pixel copy:** formatting, maps, parameters, table calculations, level-of-detail expressions and complex DAX aren't carried over, and old `.tde` extracts and live connections can't be read. The conversion report says exactly what came across.
 - **AI features need a Gemini key** (the owner's or your own). Everything else works without one.
 
 ---

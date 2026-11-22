@@ -629,6 +629,7 @@ export const NOT_FOR_AGENTS: Record<string, string> = {
   'analysis.from-sql': 'Needs your database password; only you connect to a database.',
   'analysis.from-bigquery': 'Runs queries that can cost money in your BigQuery project; only you run them.',
   'analysis.from-gcs': 'Reads files from your cloud storage; only you choose what comes in.',
+  'import.bi-workbook': 'Needs a Tableau or Power BI file you choose; agents can’t pick files from your computer.',
 };
 
 /**

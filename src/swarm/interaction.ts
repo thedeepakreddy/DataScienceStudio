@@ -364,6 +364,9 @@ export function waitForLoggedRun<T = any>(kind: string, signal: AbortSignal, tim
 
 export const RUN_LOGGED_EVENT = 'studio:run-logged';
 
+/** A page asks the studio to open a step: detail { step }. */
+export const OPEN_STEP_EVENT = 'studio:open-step';
+
 /** Sent when the current run is cleared (Clear in the chat or the Agents panel): the panel glows go out. */
 export const SWARM_CLEARED_EVENT = 'studio:swarm-cleared';
 /** The run's status, broadcast so the Orchestrator node can show pause or resume. */

@@ -272,6 +272,7 @@ export const CLIENT_ROUTES = {
   'datasets.fromRows': 'POST /v2/datasets',
   'datasets.upload': 'POST /v2/datasets/upload',
   'datasets.uploadUrl': 'POST /v2/datasets/upload-url',
+  'files.upload': 'POST /v2/files/upload',
   'datasets.get': 'GET /v2/datasets/{ds_id}',
   'datasets.remove': 'DELETE /v2/datasets/{ds_id}',
   'datasets.preview': 'GET /v2/datasets/{ds_id}/preview',
@@ -400,6 +401,20 @@ export function createEngineClient(options: EngineClientOptions = {}) {
     return (res as unknown as { dataset: DatasetMeta }).dataset;
   }
 
+  /** A Tableau or Power BI workbook: kept by the engine for connect.bi (large files go through Cloud Storage). */
+  async function importWorkbook(file: File, name?: string, opts: WaitOptions = {}) {
+    if (file.size <= 30 * 1024 * 1024) {
+      const form = new FormData();
+      form.append('file', file, file.name);
+      const up = await call<{ file_id: string; filename: string; bytes: number }>('POST', '/files/upload', form);
+      return runAndWait('connect.bi', { file_id: up.file_id, ...(name ? { name } : {}) }, { ...opts, useCache: false });
+    }
+    const target = await datasets.uploadUrl(file.name, file.type || 'application/octet-stream');
+    const put = await fetch(target.url, { method: 'PUT', headers: target.headers, body: file, signal: opts.signal });
+    if (!put.ok) throw new EngineApiError(put.status, 'upload_failed', `Uploading to Cloud Storage failed (HTTP ${put.status}).`);
+    return runAndWait('connect.bi', { uri: target.gcsUri, ...(name ? { name } : {}) }, { ...opts, useCache: false });
+  }
+
   const models = {
     list: (filter: { name?: string; stage?: ModelStage } = {}) => call<ModelMeta[]>('GET', `/models${query(filter)}`),
     /** `ref` is a model id, or name, name@production, name@staging, name@latest, name@v3. */
@@ -442,6 +457,7 @@ export function createEngineClient(options: EngineClientOptions = {}) {
       tags: string[]; cacheable: boolean; params: Record<string, unknown> }>>('GET', `/capabilities${query({ area })}`),
     textModels: () => call<TextModelInfo[]>('GET', '/text-models'),
     datasets: { ...datasets, uploadLarge },
+    importWorkbook,
     run,
     runAndWait,
     jobs,

@@ -10,6 +10,7 @@ import { engine, type DatasetMeta } from '../../engine/client';
 import MethodPanel from '../stats/MethodPanel';
 import { DataTable, num } from '../stats/methodKit';
 import UseEngineDataset from './UseEngineDataset';
+import BiImport from './BiImport';
 import Orb from '../Orb';
 import { RUN_LOGGED_EVENT } from '../../swarm/interaction';
 
@@ -116,11 +117,14 @@ export default function EngineImport() {
     <section aria-labelledby="engine-import-heading" className="space-y-4" data-agent="area-engine-import">
       <div>
         <h2 id="engine-import-heading" className="section-title">Bring in data from elsewhere</h2>
-        <p className="mt-1 text-sm text-label-2">A web address, a database, BigQuery or Cloud Storage — or a file too large for the browser. It goes into the engine first, then opens here.</p>
+        <p className="mt-1 text-sm text-label-2">A web address, a database, BigQuery or Cloud Storage, a Tableau or Power BI workbook — or a file too large for the browser. It goes into the engine first, then opens here.</p>
       </div>
       <MethodPanel group="import" dataset={EMPTY} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <LargeUpload onUploaded={() => setRefresh(n => n + 1)} />
+        <div className="space-y-4">
+          <LargeUpload onUploaded={() => setRefresh(n => n + 1)} />
+          <BiImport onImported={() => setRefresh(n => n + 1)} />
+        </div>
         <EngineDatasets refreshKey={refresh} />
       </div>
     </section>

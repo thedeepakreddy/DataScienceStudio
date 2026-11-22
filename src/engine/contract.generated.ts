@@ -2,7 +2,7 @@
 // change the engine, then run `python mlops_service/scripts/gen_contract.py`.
 /* eslint-disable */
 
-export const CONTRACT_HASH = "62e1a732347dbf1e";
+export const CONTRACT_HASH = "58cf0e94b615cdf7";
 
 export const ENGINE_VERSION = "2.0.0";
 
@@ -17,6 +17,7 @@ export type CapabilityName =
   | "causal.synthetic_control"
   | "causal.uplift"
   | "connect.api"
+  | "connect.bi"
   | "connect.bigquery"
   | "connect.gcs"
   | "connect.sql"
@@ -243,6 +244,18 @@ export interface ConnectApiParams {
   max_pages?: number;
   /** Default: null. */
   name?: string | null;
+}
+
+/** Parameters of `connect.bi` — Import a Tableau or Power BI workbook. */
+export interface ConnectBiParams {
+  /** A file uploaded with POST /v2/files/upload (.twbx, .twb, .hyper or .pbix). Default: null. */
+  file_id?: string | null;
+  /** Or a gs:// address of the file (for files too large to upload directly). Default: null. */
+  uri?: string | null;
+  /** A name prefix for the imported tables. Default: null. */
+  name?: string | null;
+  /** Most rows to read from any one table. Default: 2000000. (minimum 1, maximum 50000000) */
+  max_rows?: number;
 }
 
 /** Parameters of `connect.bigquery` — Import from BigQuery. */
@@ -1265,6 +1278,7 @@ export interface CapabilityParams {
   "causal.synthetic_control": CausalSyntheticControlParams;
   "causal.uplift": CausalUpliftParams;
   "connect.api": ConnectApiParams;
+  "connect.bi": ConnectBiParams;
   "connect.bigquery": ConnectBigqueryParams;
   "connect.gcs": ConnectGcsParams;
   "connect.sql": ConnectSqlParams;
@@ -1463,6 +1477,20 @@ export const CAPABILITIES: Record<CapabilityName, CapabilityInfo> = {
     "tags": [
       "import",
       "api"
+    ]
+  },
+  "connect.bi": {
+    "name": "connect.bi",
+    "area": "connect",
+    "title": "Import a Tableau or Power BI workbook",
+    "summary": "Reads the data a Tableau (.twbx, .hyper) or Power BI (.pbix) file carries into datasets, rebuilds its sheets or visuals as a studio dashboard where there is an equivalent chart, turns simple calculations and measures into KPI formulas, and reports what was converted, approximated or left out. A .twb holds no data, so only its structure is read.",
+    "needsDataset": false,
+    "heavy": true,
+    "cacheable": false,
+    "tags": [
+      "import",
+      "tableau",
+      "power bi"
     ]
   },
   "connect.bigquery": {
@@ -2202,6 +2230,7 @@ export const ENGINE_ROUTES = [
   "GET /v2/datasets/{ds_id}/preview",
   "POST /v2/datasets/{ds_id}/query",
   "GET /v2/experiments",
+  "POST /v2/files/upload",
   "GET /v2/info",
   "GET /v2/jobs",
   "GET /v2/jobs/{job_id}",
