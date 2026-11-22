@@ -921,12 +921,12 @@ export default function App() {
                 <span className="font-semibold">AI answers are unavailable right now.</span>{' '}
                 {ownKeyFailed
                   ? 'Your own key didn’t work either, so AI features are using built-in answers.'
-                  : 'AI features are using built-in answers. You can add your own free Gemini key, or an ARC key, to keep them working.'}
+                  : 'AI features are using built-in answers. You can add your own ARC key (or a free Gemini key as a backup) to keep them working.'}
               </p>
               <details className="mt-1 text-xs text-label-2">
                 <summary className="cursor-pointer w-max">Why?</summary>
                 <p className="mt-1 leading-relaxed">{aiStatus.message}</p>
-                {aiStatus.detail && <p className="mt-1 text-label-3 break-words">Google said: “{aiStatus.detail}”</p>}
+                {aiStatus.detail && <p className="mt-1 text-label-3 break-words">The provider said: “{aiStatus.detail}”</p>}
                 {ownKeyFailed && aiStatus.visitorKeyMessage && (
                   <p className="mt-1 leading-relaxed">Your key: {aiStatus.visitorKeyMessage}</p>
                 )}

@@ -36,7 +36,7 @@ export function mostTellingFailure(kinds: GeminiFailureKind[]): GeminiFailureKin
 export function describeGeminiFailure(kind: GeminiFailureKind, models: string[]): string {
   switch (kind) {
     case 'no_key':
-      return 'No Gemini API key is set on the server. Add GEMINI_API_KEY in your hosting environment settings and redeploy.';
+      return 'No AI key is set on the server. Add ARC_API_KEY (the main route; ARC_BASE_URL too for your own ARC) in your hosting environment settings and redeploy. GEMINI_API_KEY is an optional fallback.';
     case 'bad_key':
       return 'Google rejected the Gemini API key (invalid, expired or restricted). Create a new key in Google AI Studio and update GEMINI_API_KEY.';
     case 'billing':

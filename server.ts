@@ -769,7 +769,7 @@ let lastModelUpdateAt = 0;
 app.post('/api/ai/refresh-models', async (req, res) => {
   const tier: GeminiTier = req.body?.tier === 'latest' ? 'latest' : req.body?.tier === 'free' ? 'free' : geminiTier;
   res.set('Cache-Control', 'no-store');
-  if (!aiKeyAvailable()) return res.status(400).json({ ok: false, message: 'There is no Gemini key to ask Google with; add your own key first.', models: geminiModelInfo });
+  if (!aiKeyAvailable()) return res.status(400).json({ ok: false, message: 'There is no Gemini key to ask Google with. ARC is the main route; a Gemini key is only the backup.', models: geminiModelInfo });
   if (Date.now() - lastModelUpdateAt < 15_000) return res.status(429).json({ ok: false, message: 'Updated a moment ago; try again in a few seconds.', models: geminiModelInfo });
   lastModelUpdateAt = Date.now();
   const before = GEMINI_MODELS[0];
