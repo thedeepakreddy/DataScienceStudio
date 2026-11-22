@@ -42,6 +42,7 @@ import AiModelUpdate, { type AiModelInfo } from './components/AiModelUpdate';
 import { aiKeyHeaders, getUserGeminiKey, AI_KEY_CHANGED_EVENT } from './utils/aiKey';
 import { buildAdvisoryFallback } from './utils/advisoryFallback';
 import LoadingScreen from './components/LoadingScreen';
+import Landing from './components/Landing';
 import { usePipelineContext, PipelineStage } from './contexts/PipelineContext';
 import { STAGES, STAGE_ORDER } from './stages';
 import { apiFetch, API_SETTLED_EVENT } from './utils/api';
@@ -90,6 +91,9 @@ export default function App() {
   // The agents' welcome, every time the studio opens (after the loading screen).
   const [showWelcome, setShowWelcome] = useState(true);
   const closeWelcome = useCallback(() => setShowWelcome(false), []);
+  // The front page, under the welcome; Try for free opens the studio.
+  const [showLanding, setShowLanding] = useState(true);
+  const closeLanding = useCallback(() => setShowLanding(false), []);
   const {
     businessProblem, bannerDismissed, setBannerDismissed,
     expertMode, setExpertMode,
@@ -1125,6 +1129,7 @@ export default function App() {
       {/* Assistive Touch Dynamic Gemini Co-pilot (Drag and move anywhere, controls all pipeline stages & data) */}
       {/* The agents at work on this page, and the user's way to take over. */}
       <AgentCursorLayer />
+      {!showLoading && showLanding && <Landing onStart={closeLanding} />}
       {!showLoading && showWelcome && <WelcomeSwarm onClose={closeWelcome} />}
       <SwarmTakeover status={swarm.run?.status ?? null} onPause={swarm.pause} onResume={swarm.resume} onCancel={swarm.cancel} />
 

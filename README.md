@@ -11,6 +11,7 @@
 - [At a glance](#at-a-glance)
 - [Why it exists](#why-it-exists)
 - [Your agent team](#your-agent-team)
+- [The front page](#the-front-page)
 - [The seven steps](#the-seven-steps)
 - [Your work is saved, versioned and reproducible](#your-work-is-saved-versioned-and-reproducible)
 - [Beginner and Expert modes](#beginner-and-expert-modes)
@@ -141,6 +142,15 @@ Every number shown is computed from the sample. Then the team flies into the Ask
 
 ---
 
+## The front page
+
+After the loading screen and the agents' welcome, the studio opens on a dark front page. **Try for free** (top right, and throughout the page) opens the studio. Everything on it is real:
+- **Live panels** replay the welcome's 20-row sample: a conversation with the team, the engine's run log, the blanks filled with medians and a dashboard chart. Every number is computed from those rows.
+- **Ask AI** shows the studio's own thinking orb, cycling through the states it uses (waiting, planning, running an analysis, training, writing) inside a turning glass sphere.
+- **The engine** lists its analyses by discipline, counted from the engine contract, with sample code (Python, TypeScript, cURL) for the real API.
+- **Where it runs** describes the deployment: your browser, the web server on Render, the engine on Google Cloud Run, Cloud Storage for large files, and AI routing (ARC, then Gemini, or your own keys).
+- **The seven steps**, the agents and links to the source.
+
 ## The seven steps
 
 ### 1. Import
@@ -246,7 +256,7 @@ The agents work in both.
                 │
                 ▼
 ┌──────────────────────── Python FastAPI (stateless) ─────────────────────┐
-│  Engine v2: /v2/run/{capability} (65 analyses), datasets, jobs, runs,   │
+│  Engine v2: /v2/run/{capability} (66 analyses), datasets, jobs, runs,   │
 │  models (registry, serving, monitoring), pipelines and schedules        │
 │  Classic: /train /predict /eda /forecast /stats/* /monitor/drift        │
 │  scikit-learn · XGBoost · LightGBM · CatBoost · statsmodels · SciPy ·   │
@@ -263,7 +273,7 @@ The agents work in both.
 | Area | Technology |
 |---|---|
 | UI | React 19, TypeScript, Vite 6, Tailwind CSS v4, Motion, Recharts, Lucide |
-| Type | SF Pro / Inter for the studio; Source Serif 4 for the welcome |
+| Type | SF Pro / Inter for the studio; Source Serif 4 for the welcome; Geist and Geist Mono for the front page |
 | In-browser data | AlaSQL (read-only SQL), read-excel-file, hyparquet, mathjs |
 | Storage | IndexedDB |
 | Server | Node.js, Express, esbuild bundle |
