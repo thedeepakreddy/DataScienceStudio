@@ -146,7 +146,22 @@ Every number shown is computed from the sample. Then the team flies into the Ask
 
 After the loading screen and the agents' welcome, the studio opens on a dark front page. **Try for free** (top right, and throughout the page) opens the studio. Everything on it is real:
 - **Live panels**, as in the agents' welcome: agents move in and do the work on the welcome's 20-row sample. A question is typed and the Orchestrator answers, the engine's run log fills in, the Data Engineer types each median into its blank and the Verifier ticks the results, and the Dashboard Designer drags a chart in and widens it by its curved corner. Every value is computed from those rows. Each panel plays when it scrolls into view and loops while visible.
-- **Motion throughout:** the headline rises in, sections reveal as you scroll, the counts count up, and the API code types itself out. With reduced motion, everything shows its finished state.
+- **A 3D data field behind the page** (three.js): about 6,000 points held by springs, like a liquid. As you scroll, they pour from a globe into a scatter plot (sloping as the sample's correlation does), a ring of agent clusters in their colours, seven bars for the seven steps, and a wide globe at the end. They slosh with your scroll speed, scatter from the pointer and lean towards it.
+- **Scroll choreography** (GSAP and ScrollTrigger):
+  - the headline's letters fly apart as you leave the hero;
+  - the panels tip up from the floor in 3D;
+  - a band of words runs faster and turns with your scrolling;
+  - headings lean with scroll speed;
+  - the engine's tiles burst in from scattered places;
+  - the platform cards swing in like doors;
+  - the big numbers come down from huge;
+  - on wide screens, the seven steps scroll sideways while the section is pinned;
+  - the plans slide in from both sides, and a giant wordmark rises letter by letter.
+- **Agents on the page:** besides the panels, the agents' cursors visit each section as it arrives:
+  - the Orchestrator writes your goal and the Statistician points to Try for free;
+  - the ML Engineer switches the code to TypeScript, copies the call and switches back;
+  - the Statistician picks engine disciplines, the Orchestrator walks the platform, the Verifier recounts the big numbers, and the Data Engineer follows the steps.
+- **Motion throughout:** the counts count up and the API code types itself out. three.js and GSAP load separately, only for this page. With reduced motion, the field is still and everything shows its finished state.
 - **Ask AI** shows the studio's own thinking orb, cycling through the states it uses (waiting, planning, running an analysis, training, writing) inside a turning glass sphere.
 - **The engine** lists its analyses by discipline, counted from the engine contract, with sample code (Python, TypeScript, cURL) for the real API.
 - **Where it runs** describes the deployment: your browser, the web server on Render, the engine on Google Cloud Run, Cloud Storage for large files, and AI routing (ARC, then Gemini, or your own keys).
@@ -273,7 +288,7 @@ The agents work in both.
 
 | Area | Technology |
 |---|---|
-| UI | React 19, TypeScript, Vite 6, Tailwind CSS v4, Motion, Recharts, Lucide |
+| UI | React 19, TypeScript, Vite 6, Tailwind CSS v4, Motion, Recharts, Lucide; three.js and GSAP (ScrollTrigger) for the front page |
 | Type | SF Pro / Inter for the studio; Source Serif 4 for the welcome; Geist and Geist Mono for the front page |
 | In-browser data | AlaSQL (read-only SQL), read-excel-file, hyparquet, mathjs |
 | Storage | IndexedDB |

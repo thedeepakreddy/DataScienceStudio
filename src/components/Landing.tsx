@@ -11,6 +11,8 @@ import { CAPABILITIES as ENGINE_CAPABILITIES } from '../engine/contract.generate
 import { demoResults } from './welcomeDemo';
 import AppIcon from './AppIcon';
 import { ChatPanel, CleanPanel, CountUp, DashboardPanel, EnginePanel, Reveal, useInView } from './landingPanels';
+import { CursorGlyph } from './AgentCursor';
+import type { AgentRole } from '../swarm/agents';
 import { ThinkingOrb } from 'thinking-orbs';
 import type { OrbState } from 'thinking-orbs';
 
@@ -53,7 +55,7 @@ const still = () => typeof window !== 'undefined' && !!window.matchMedia?.('(pre
 
 const C = {
   bg: '#0a0a0a',
-  card: '#141414',
+  card: 'rgba(20,20,20,0.82)',
   line: 'rgba(255,255,255,0.07)',
   pill: '#1d1d1d',
   text: '#f5f5f5',
@@ -187,7 +189,7 @@ function LiquidSphere({ size = 300 }: { size?: number }) {
 }
 
 function Card({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties; key?: React.Key }) {
-  return <div className={`relative overflow-hidden rounded-[22px] ${className}`} style={{ background: C.card, ...style }}>{children}</div>;
+  return <div className={`relative overflow-hidden rounded-[22px] lp-glass ${className}`} style={{ background: C.card, ...style }}>{children}</div>;
 }
 
 function CardFoot({ label, onExplore }: { label: string; onExplore: () => void }) {
@@ -277,17 +279,74 @@ function CodeWindow() {
         <div className="relative rounded-[16px] overflow-hidden" style={{ background: '#0d0d0d', border: `1px solid ${C.line}` }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${C.line}` }}>
             <span className="flex gap-2" aria-hidden="true">{['#ff5f57', '#febc2e', '#28c840'].map(c => <span key={c} className="w-3 h-3 rounded-full" style={{ background: c }} />)}</span>
-            <button type="button" onClick={copy} className="lp-link text-[13px] inline-flex items-center gap-1.5">{copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}{copied ? 'Copied' : 'Copy'}</button>
+            <button type="button" onClick={copy} data-cur="copy" className="lp-link text-[13px] inline-flex items-center gap-1.5">{copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}{copied ? 'Copied' : 'Copy'}</button>
           </div>
           <pre className="px-5 py-5 text-[12.5px] sm:text-[13.5px] leading-[1.75] overflow-x-auto" style={{ color: '#e6e6e6', fontFamily: LP_MONO }}><code>{highlight(code.slice(0, shown))}{shown < code.length && <span className="lp-caret" style={{ height: '1em' }} />}</code></pre>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap gap-1" role="tablist">
         {(['Python', 'TypeScript', 'cURL'] as const).map(t => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => { setTab(t); setShown(Infinity); }}
+          <button key={t} type="button" role="tab" data-cur={`tab-${t}`} aria-selected={tab === t} onClick={() => { setTab(t); setShown(Infinity); }}
             className="px-4 py-2 rounded-full text-[15px] transition-colors" style={{ background: tab === t ? C.pill : 'transparent', color: tab === t ? C.text : C.mute }}>{t}</button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Text as separate letters (words kept together), for the scroll motion to move. */
+function Split({ text, className = '' }: { text: string; className?: string }) {
+  return (
+    <span className={className} aria-label={text}>
+      {text.split(' ').map((w, wi, arr) => (
+        <span key={wi} className="inline-block whitespace-nowrap" aria-hidden="true">
+          {[...w].map((ch, ci) => <span key={ci} className="lp-char">{ch}</span>)}
+          {wi < arr.length - 1 && <span className="lp-char">&nbsp;</span>}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** A band of words that runs sideways; the scroll motion speeds it up and turns it. */
+function Marquee() {
+  const a = [...STAGE_ORDER.map(s => STAGES[s].label), `${ENGINE_COUNT} analyses`, `${AGENT_COUNT} agents`];
+  const row = (items: string[], dir: 1 | -1, outline: boolean) => (
+    <div data-marquee={dir} data-skew className="overflow-hidden whitespace-nowrap py-2">
+      <div className="inline-flex will-change-transform">
+        {[0, 1].map(k => (
+          <span key={k} className="inline-flex items-center" aria-hidden={k === 1}>
+            {items.map(t => (
+              <span key={t} className="inline-flex items-center">
+                <span className={`px-6 sm:px-10 font-medium ${outline ? 'lp-outline-text' : ''}`} style={{ fontSize: 'clamp(48px, 9vw, 132px)', letterSpacing: '-0.04em', lineHeight: 1.05 }}>{t}</span>
+                <span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full" style={{ background: outline ? 'transparent' : '#f5f5f5', border: '2px solid #f5f5f5' }} />
+              </span>
+            ))}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <section aria-label="What the studio does" className="mt-32 -rotate-2 scale-[1.04]">
+      {row(a, 1, false)}
+      {row([...a].reverse(), -1, true)}
+    </section>
+  );
+}
+
+const PAGE_CURSORS: AgentRole[] = ['orchestrator', 'statistician', 'ml_engineer', 'verifier', 'data_engineer'];
+
+/** The agents' cursors on the page itself; the scroll motion sends them to each section. */
+function PageCursors() {
+  return (
+    <div aria-hidden="true" className="fixed inset-0 z-[35] pointer-events-none overflow-hidden">
+      {PAGE_CURSORS.map(role => (
+        <div key={role} data-page-cursor={role} className="fixed left-0 top-0 will-change-transform" style={{ transform: 'translate3d(-120px,-120px,0)' }}>
+          <CursorGlyph color={AGENTS[role].color} variant="solid" size={22} />
+          <span className="agent-tag" style={{ left: 15, top: 18 }}><span className="font-semibold">{AGENTS[role].name}</span><span className="opacity-80" data-say /></span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -297,6 +356,33 @@ export default function Landing({ onStart }: { onStart: () => void }) {
   const [menu, setMenu] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+
+  // The 3D field and the scroll choreography load on their own (three.js and GSAP).
+  useEffect(() => {
+    const root = scroller.current, cv = canvas.current;
+    if (!root || !cv) return;
+    let cancelled = false, cleanup = () => {};
+    const css = getComputedStyle(document.documentElement);
+    const colors = Object.values(AGENTS).map(a => css.getPropertyValue(a.color.replace(/^var\((--[^,)]+).*$/, '$1')).trim()).filter(Boolean);
+    Promise.all([import('./landingScene'), import('./landingMotion')]).then(([{ createDataField }, { initLandingMotion }]) => {
+      if (cancelled) return;
+      const calm = still();
+      let field: import('./landingScene').DataField | null = null;
+      try { field = createDataField(cv, { count: window.innerWidth < 768 ? 2600 : 6000, r: demo.r, agentColors: colors, still: calm }); } catch { field = null; }
+      const onResize = () => field?.resize();
+      const onMove = (e: PointerEvent) => field?.setPointer((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+      const onLeave = () => field?.setPointer(null, null);
+      window.addEventListener('resize', onResize);
+      root.addEventListener('pointermove', onMove);
+      root.addEventListener('pointerleave', onLeave);
+      const stopMotion = calm ? () => {} : initLandingMotion(root, field, { cursors: window.innerWidth >= 900 });
+      cleanup = () => { stopMotion(); window.removeEventListener('resize', onResize); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerleave', onLeave); field?.dispose(); };
+    }).catch(() => undefined);
+    return () => { cancelled = true; cleanup(); };
+    // Set up once for the page's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const start = useCallback(() => { setLeaving(true); setTimeout(onStart, 380); }, [onStart]);
   const goTo = (id: string) => scroller.current?.querySelector(`#${id}`)?.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'start' });
 
@@ -313,8 +399,12 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       className="fixed inset-0 z-[10000] overflow-y-auto overflow-x-hidden"
       style={{ background: C.bg, color: C.text, opacity: leaving ? 0 : 1, transition: 'opacity 380ms ease', fontFamily: LP_SANS, colorScheme: 'dark', fontFeatureSettings: '"ss01", "cv11"', WebkitFontSmoothing: 'antialiased' }}>
 
+      {/* The 3D data field behind everything, and the agents' cursors above it. */}
+      <canvas ref={canvas} aria-hidden="true" className="fixed inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }} />
+      <PageCursors />
+
       {/* Header */}
-      <header className="sticky top-0 z-20" style={{ background: 'rgba(10,10,10,0.82)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: `1px solid ${C.line}` }}>
+      <header className="sticky top-0 z-30" style={{ background: 'rgba(10,10,10,0.82)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: `1px solid ${C.line}` }}>
         <div className="mx-auto max-w-[1400px] h-[68px] px-4 sm:px-6 lg:px-8 flex items-center gap-6 lg:gap-10">
           <button type="button" onClick={() => scroller.current?.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 shrink-0" aria-label="Back to the top">
             <AppIcon size={30} />
@@ -342,48 +432,50 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 sm:pt-28 text-center">
-        <button type="button" onClick={start} style={{ animationDelay: '80ms' }} className="lp-rise inline-flex items-center gap-2 sm:gap-3 h-11 pl-2 pr-2 rounded-full text-[13.5px] sm:text-[15px] lp-badge max-w-full">
+      <section data-hero data-cursor-scene="hero" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 sm:pt-28 text-center min-h-[86vh]">
+        <button type="button" onClick={start} data-hero-fade style={{ animationDelay: '80ms' }} className="lp-rise inline-flex items-center gap-2 sm:gap-3 h-11 pl-2 pr-2 rounded-full text-[13.5px] sm:text-[15px] lp-badge max-w-full">
           <span className="px-2.5 py-0.5 rounded-full text-[13px]" style={{ background: 'rgba(255,120,40,0.12)', color: '#ff7a2f' }}>New</span>
           <span className="whitespace-nowrap">Tableau and Power BI import</span>
           <span className="hidden md:inline" style={{ color: C.mute }}>· open a workbook as a dashboard</span>
           <span className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: C.pill }}><ArrowUpRight className="w-3.5 h-3.5" /></span>
         </button>
         <h1 className="mt-10 mx-auto max-w-[1100px] font-medium leading-[1.02]" style={{ fontSize: 'clamp(34px, 6.2vw, 92px)', letterSpacing: '-0.045em' }}>
-          <span className="lp-rise block" style={{ animationDelay: '200ms' }}>A data science team</span>
-          <span className="lp-rise block sm:whitespace-nowrap" style={{ animationDelay: '340ms' }}>for everything you <TypedWord />.</span>
+          <span className="lp-rise block" data-split style={{ animationDelay: '200ms' }}><Split text="A data science team" /></span>
+          <span className="lp-rise block sm:whitespace-nowrap" data-split style={{ animationDelay: '340ms' }}><Split text="for everything you" /> <span data-cur="typed"><TypedWord /></span>.</span>
         </h1>
-        <p className="lp-rise mt-8 mx-auto max-w-[860px] text-[17px] sm:text-[21px] leading-relaxed" style={{ color: '#d6d6d6', animationDelay: '480ms' }}>
+        <p data-hero-fade className="lp-rise mt-8 mx-auto max-w-[860px] text-[17px] sm:text-[21px] leading-relaxed" style={{ color: '#d6d6d6', animationDelay: '480ms' }}>
           Clean, explore, test, model, dashboard and report. {AGENT_COUNT} agents do the work on your page; every number comes from a real engine.
         </p>
-        <div className="lp-rise mt-10 flex flex-wrap items-center justify-center gap-4" style={{ animationDelay: '600ms' }}>
-          <button type="button" onClick={start} className="h-[60px] px-8 rounded-full bg-white text-black text-[17px] inline-flex items-center gap-2 hover:bg-white/90 transition-colors">Try for free <ChevronRight className="w-4 h-4" /></button>
+        <div data-hero-fade className="lp-rise mt-10 flex flex-wrap items-center justify-center gap-4" style={{ animationDelay: '600ms' }}>
+          <button type="button" onClick={start} data-cur="try" className="h-[60px] px-8 rounded-full bg-white text-black text-[17px] inline-flex items-center gap-2 hover:bg-white/90 transition-colors">Try for free <ChevronRight className="w-4 h-4" /></button>
           <button type="button" onClick={() => goTo('lp-developers')} className="h-[60px] px-8 rounded-full text-[17px] lp-dark-btn">View the engine</button>
         </div>
       </section>
 
       {/* Live panels: the agents at work */}
-      <section id="lp-products" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-24 grid grid-cols-1 md:grid-cols-3 gap-5 scroll-mt-24">
-        <Reveal delay={0}><ChatPanel demo={demo} onExplore={start} /></Reveal>
-        <Reveal delay={120}><EnginePanel demo={demo} onExplore={() => goTo('lp-engine')} /></Reveal>
-        <Reveal delay={240}><DashboardPanel demo={demo} onExplore={start} /></Reveal>
+      <section id="lp-products" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 -mt-[14vh] grid grid-cols-1 md:grid-cols-3 gap-5 scroll-mt-24" style={{ perspective: 1400 }}>
+        <div data-tilt><ChatPanel demo={demo} onExplore={start} /></div>
+        <div data-tilt><EnginePanel demo={demo} onExplore={() => goTo('lp-engine')} /></div>
+        <div data-tilt><DashboardPanel demo={demo} onExplore={start} /></div>
       </section>
 
-      <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Reveal><CleanPanel demo={demo} onExplore={start} /></Reveal>
-        <Reveal delay={120}>
+      <section className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-5 grid grid-cols-1 lg:grid-cols-2 gap-5" style={{ perspective: 1400 }}>
+        <div data-tilt><CleanPanel demo={demo} onExplore={start} /></div>
+        <div data-tilt>
           <Card className="h-[480px] flex items-center justify-center">
             <div className="-mt-6"><LiquidSphere size={330} /></div>
             <CardFoot label="Ask AI" onExplore={start} />
           </Card>
-        </Reveal>
+        </div>
       </section>
 
+      <div className="relative z-10"><Marquee /></div>
+
       {/* For developers */}
-      <section id="lp-developers" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center scroll-mt-24">
+      <section id="lp-developers" data-scene="1" data-cursor-scene="dev" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center scroll-mt-24">
         <Reveal>
           <p className="text-[17px]" style={{ color: C.mute }}>For developers</p>
-          <h2 className="mt-5 font-medium leading-[1.04]" style={{ fontSize: 'clamp(40px, 5.2vw, 76px)', letterSpacing: '-0.045em' }}>One engine.<br />Every method.</h2>
+          <h2 data-skew className="mt-5 font-medium leading-[1.04]" style={{ fontSize: 'clamp(40px, 5.2vw, 76px)', letterSpacing: '-0.045em' }}>One engine.<br />Every method.</h2>
           <p className="mt-6 max-w-[620px] text-[18px] sm:text-[20px] leading-relaxed" style={{ color: '#d6d6d6' }}>
             Statistics, causal inference, machine learning, forecasting and reports, behind one API. The studio uses the same calls you can make yourself.
           </p>
@@ -397,12 +489,12 @@ export default function Landing({ onStart }: { onStart: () => void }) {
             ))}
           </dl>
         </Reveal>
-        <Reveal delay={150}><CodeWindow /></Reveal>
+        <div data-from="right"><CodeWindow /></div>
       </section>
 
 
       {/* The engine, area by area (counted from its contract) */}
-      <section id="lp-engine" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
+      <section id="lp-engine" data-scene="2" data-cursor-scene="engine" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
         <Reveal className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-10 items-end">
           <div>
             <p className="text-[17px]" style={{ color: C.mute }}>The engine</p>
@@ -412,9 +504,9 @@ export default function Landing({ onStart }: { onStart: () => void }) {
             A Python service built on scikit-learn, XGBoost, LightGBM, CatBoost, statsmodels, SciPy, SHAP, Optuna and DuckDB. Every analysis checks its inputs, records its parameters and seed, and can be reproduced as a notebook.
           </p>
         </Reveal>
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px rounded-[22px] overflow-hidden" style={{ background: C.line }}>
-          {ENGINE_AREAS.map((a, i) => (
-            <Reveal key={a.area} delay={(i % 3) * 90} className="p-7 lp-area" style={{ background: C.card }}>
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {ENGINE_AREAS.map(a => (
+            <div key={a.area} data-burst data-area={a.label} data-count={a.items.length} className="p-7 lp-area lp-glass rounded-[18px]" style={{ background: C.card }}>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[20px] tracking-tight">{a.label}</span>
                 <span className="text-[14px] tabular-nums" style={{ color: C.dim, fontFamily: LP_MONO }}>{String(a.items.length).padStart(2, '0')}</span>
@@ -423,37 +515,37 @@ export default function Landing({ onStart }: { onStart: () => void }) {
                 {a.items.slice(0, 4).map(t => <li key={t}>{t}</li>)}
                 {a.items.length > 4 && <li style={{ color: C.dim }}>and {a.items.length - 4} more</li>}
               </ul>
-            </Reveal>
+            </div>
           ))}
         </div>
       </section>
 
       {/* Where it runs */}
-      <section id="lp-platform" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
+      <section id="lp-platform" data-cursor-scene="platform" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
         <Reveal>
           <p className="text-[17px]" style={{ color: C.mute }}>Where it runs</p>
           <h2 className="mt-5 max-w-[900px] font-medium leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.045em' }}>Your browser, Render and Google Cloud.</h2>
         </Reveal>
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
-          {PLATFORM.map((p, i) => (
-            <Reveal key={p.name} delay={i * 90} className="lp-tile rounded-[22px] p-7 flex flex-col min-h-[300px]" style={{ background: C.card }}>
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5" style={{ perspective: 1200 }}>
+          {PLATFORM.map(p => (
+            <div key={p.name} data-flip data-platform={`${p.name} · ${p.where}`} className="lp-tile lp-glass rounded-[22px] p-7 flex flex-col min-h-[300px]" style={{ background: C.card }}>
               <span className="text-[12px] uppercase tracking-[0.18em]" style={{ color: C.dim, fontFamily: LP_MONO }}>{p.where}</span>
               <span className="mt-4 text-[24px] tracking-tight">{p.name}</span>
               <p className="mt-3 text-[15px] leading-relaxed" style={{ color: C.mute }}>{p.what}</p>
               <p className="mt-auto pt-6 text-[13px] leading-relaxed" style={{ color: C.dim, fontFamily: LP_MONO }}>{p.stack}</p>
-            </Reveal>
+            </div>
           ))}
         </div>
       </section>
 
       {/* Big numbers */}
-      <section id="lp-numbers" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 scroll-mt-24">
+      <section id="lp-numbers" data-cursor-scene="numbers" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 scroll-mt-24">
         <div style={{ borderTop: `1px solid ${C.line}` }} className="grid grid-cols-1 md:grid-cols-3">
           {([[ENGINE_COUNT, 'analyses run on a real engine: tests, models, forecasts, causal methods and more'],
             [AGENT_COUNT, 'specialists who plan, do and check the work, step by step'],
             [0, 'numbers written by AI: it writes words, plans and code, never metrics']] as const).map(([v, l], i) => (
-            <Reveal key={l} delay={i * 120} className={`pt-14 pb-6 ${i ? 'md:pl-16' : ''} ${i < 2 ? 'md:border-r' : ''}`} style={{ borderColor: C.line }}>
-              <p className="font-medium leading-none" style={{ fontSize: 'clamp(64px, 8vw, 110px)', letterSpacing: '-0.05em' }}><CountUp to={v} duration={1800} /></p>
+            <Reveal key={l} className={`pt-14 pb-6 ${i ? 'md:pl-16' : ''} ${i < 2 ? 'md:border-r' : ''}`} style={{ borderColor: C.line }}>
+              <p data-bignum className="font-medium leading-none" style={{ fontSize: 'clamp(64px, 8vw, 110px)', letterSpacing: '-0.05em' }}><CountUp to={v} duration={1800} /></p>
               <p className="mt-6 max-w-[340px] text-[17px] leading-relaxed" style={{ color: C.mute }}>{l}</p>
             </Reveal>
           ))}
@@ -461,39 +553,39 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       </section>
 
       {/* The seven steps */}
-      <section id="lp-steps" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 scroll-mt-24">
+      <section id="lp-steps" data-scene="3" data-hscroll data-cursor-scene="steps" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 scroll-mt-24 lg:overflow-hidden" style={{ perspective: 1600 }}>
         <Reveal as="div"><h2 className="font-medium leading-[1.05]" style={{ fontSize: 'clamp(36px, 4.4vw, 60px)', letterSpacing: '-0.04em' }}>Seven steps, in order.</h2></Reveal>
-        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div data-track className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-5 lg:flex lg:w-max lg:pr-8">
           {STAGE_ORDER.map((s, i) => {
             const st = STAGES[s];
             const Icon = st.icon;
             return (
-              <Reveal key={s} delay={(i % 4) * 90}><button type="button" onClick={start} className="w-full h-full lp-step text-left rounded-[22px] p-6 flex flex-col min-h-[220px]" style={{ background: C.card }}>
+              <div key={s} data-step={i + 1} className="lg:w-[360px] lg:shrink-0"><button type="button" onClick={start} className="w-full h-full lp-step lp-glass text-left rounded-[22px] p-6 flex flex-col min-h-[220px] lg:min-h-[340px]" style={{ background: C.card }}>
                 <span className="flex items-center justify-between"><span className="text-[13px] tabular-nums" style={{ color: C.dim }}>0{i + 1}</span><Icon className="w-5 h-5" style={{ color: C.mute }} /></span>
                 <span className="mt-auto pt-8 block min-h-[118px]">
                   <span className="block text-[22px] tracking-tight">{st.label}</span>
                   <span className="block mt-2 text-[14.5px] leading-relaxed" style={{ color: C.mute }}>{st.description}</span>
                 </span>
-              </button></Reveal>
+              </button></div>
             );
           })}
-          <Reveal delay={270}><button type="button" onClick={start} className="w-full h-full lp-step rounded-[22px] p-6 flex flex-col min-h-[220px] text-left bg-white text-black">
+          <div className="lg:w-[360px] lg:shrink-0"><button type="button" onClick={start} className="w-full h-full lp-step rounded-[22px] p-6 flex flex-col min-h-[220px] lg:min-h-[340px] text-left bg-white text-black">
             <span className="text-[13px] opacity-60">Start</span>
             <span className="mt-auto pt-8 block min-h-[118px]">
               <span className="text-[22px] tracking-tight inline-flex items-center gap-2">Open the studio <ArrowRight className="w-5 h-5" /></span>
               <span className="block mt-2 text-[14.5px] opacity-60">Import a file, or try a sample.</span>
             </span>
-          </button></Reveal>
+          </button></div>
         </div>
       </section>
 
       {/* Two ways to use it */}
-      <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 grid grid-cols-1 lg:grid-cols-2 gap-10">
+      <section data-scene="4" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 grid grid-cols-1 lg:grid-cols-2 gap-10">
         {([
           { title: 'Start in your browser', sub: 'Free, with nothing to install:', items: ['Every step, from import to report', `${AGENT_COUNT} agents that work on your page`, 'Your work saved and versioned in your browser', 'Your own Gemini or ARC key, if you like'], cta: 'Try for free', primary: true },
           { title: 'Run it your way', sub: 'Open source, on your own machines:', items: ['The full source on GitHub', 'One command with Docker', 'The engine on Cloud Run, the studio anywhere', 'Notebooks that reproduce every run'], cta: 'View on GitHub', primary: false },
         ]).map((p, i) => (
-          <Reveal key={p.title} delay={i * 140}><Card className="h-full p-8 sm:p-16 flex flex-col">
+          <div key={p.title} data-from={i ? 'right' : 'left'}><Card className="h-full p-8 sm:p-16 flex flex-col">
             <h3 className="text-[30px] sm:text-[38px] tracking-tight">{p.title}</h3>
             <p className="mt-3 text-[18px] sm:text-[20px]" style={{ color: '#d6d6d6' }}>{p.sub}</p>
             <div className="my-9 h-px" style={{ background: C.line }} />
@@ -505,12 +597,15 @@ export default function Landing({ onStart }: { onStart: () => void }) {
                 ? <button type="button" onClick={start} className="w-full h-[62px] rounded-full bg-white text-black text-[17px] hover:bg-white/90 transition-colors">{p.cta}</button>
                 : <a href={REPO} target="_blank" rel="noreferrer" className="w-full h-[62px] rounded-full text-[17px] inline-flex items-center justify-center lp-outline-btn">{p.cta}</a>}
             </div>
-          </Card></Reveal>
+          </Card></div>
         ))}
       </section>
 
       {/* Footer */}
-      <footer className="mt-40" style={{ borderTop: `1px solid ${C.line}`, background: '#0b0b0b' }}>
+      <div data-wordmark aria-hidden="true" className="relative z-10 mt-40 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <p className="mx-auto max-w-[1400px] font-medium leading-[0.9] whitespace-nowrap" style={{ fontSize: 'clamp(40px, 10.6vw, 184px)', letterSpacing: '-0.055em' }}><Split text="Data Science Studio" /></p>
+      </div>
+      <footer className="relative z-10 mt-10" style={{ borderTop: `1px solid ${C.line}`, background: 'rgba(11,11,11,0.92)' }}>
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-16 grid grid-cols-1 lg:grid-cols-[1fr_2.2fr] gap-12">
           <div className="lg:border-r lg:border-dashed pr-8" style={{ borderColor: C.line }}>
             <div className="flex items-center gap-2.5"><AppIcon size={28} /><span className="text-[17px] font-medium tracking-tight">Data Science Studio</span></div>

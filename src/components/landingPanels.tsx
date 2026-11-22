@@ -21,7 +21,7 @@ type Demo = ReturnType<typeof demoResults>;
 export const still = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const MONO = '"Geist Mono", ui-monospace, "SF Mono", Menlo, monospace';
-const C = { card: '#141414', line: 'rgba(255,255,255,0.07)', text: '#f5f5f5', mute: '#8b8b8b', dim: '#5c5c5c', green: '#7ee787' };
+const C = { card: 'rgba(20,20,20,0.82)', line: 'rgba(255,255,255,0.07)', text: '#f5f5f5', mute: '#8b8b8b', dim: '#5c5c5c', green: '#7ee787' };
 
 /** Thrown to end a choreography when its panel leaves view. */
 class Stopped extends Error {}
@@ -42,10 +42,9 @@ export function useInView<T extends Element>(threshold = 0.3, once = false) {
   return [ref, seen] as const;
 }
 
-/** Rises into place the first time it scrolls into view. */
-export function Reveal({ children, delay = 0, className = '', as: Tag = 'div', style }: { children: React.ReactNode; delay?: number; className?: string; as?: 'div' | 'section' | 'li'; style?: React.CSSProperties; key?: React.Key }) {
-  const [ref, seen] = useInView<HTMLDivElement>(0.12, true);
-  return React.createElement(Tag, { ref, className: `lp-reveal${seen ? ' is-in' : ''} ${className}`, style: { transitionDelay: `${delay}ms`, ...style } }, children);
+/** Rises into place when it scrolls into view (the page's motion batches every [data-reveal]). */
+export function Reveal({ children, className = '', as: Tag = 'div', style }: { children: React.ReactNode; delay?: number; className?: string; as?: 'div' | 'section' | 'li'; style?: React.CSSProperties; key?: React.Key }) {
+  return React.createElement(Tag, { 'data-reveal': '', className, style }, children);
 }
 
 /** Counts up to a number the first time it is seen. */
@@ -126,7 +125,7 @@ function Foot({ label, onExplore }: { label: string; onExplore: () => void }) {
 
 function Shell({ children, h, label, onExplore, bg, inner }: { children: React.ReactNode; h: number; label: string; onExplore: () => void; bg?: string; inner?: React.Ref<HTMLDivElement> }) {
   return (
-    <div ref={inner} className="relative overflow-hidden rounded-[22px] lp-panel" style={{ height: h, background: bg ?? C.card }}>
+    <div ref={inner} className="relative overflow-hidden rounded-[22px] lp-panel lp-glass" style={{ height: h, background: bg ?? C.card }}>
       {children}
       <Foot label={label} onExplore={onExplore} />
     </div>
@@ -203,7 +202,7 @@ export function EnginePanel({ demo, onExplore }: { demo: Demo; onExplore: () => 
   }, () => undefined);
   const done = n / lines.length;
   return (
-    <Shell h={420} label="Engine" onExplore={onExplore} bg="#101010" inner={ref}>
+    <Shell h={420} label="Engine" onExplore={onExplore} bg="rgba(16,16,16,0.86)" inner={ref}>
       <div className="flex items-center gap-3 px-5 py-3.5 text-[13px]" style={{ borderBottom: `1px solid ${C.line}`, fontFamily: MONO }}>
         <span className="flex gap-1.5" aria-hidden="true">{['#ff5f57', '#febc2e', '#28c840'].map(c => <span key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}</span>
         <span style={{ color: C.mute }}>customers.csv</span>
