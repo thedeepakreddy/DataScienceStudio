@@ -429,7 +429,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       }
       if (cancelled) { gpu?.dispose(); return; }
       clearTimeout(safety);
-      safety = setTimeout(reveal, 7000 / introSpeed);
+      safety = setTimeout(reveal, 9500 / introSpeed);
       if (!field) {
         try { field = createDataField(cv, { count: phone ? 2600 : 6000, r: demo.r, agentColors: colors, still: calm }); } catch { field = null; }
         reveal();
@@ -458,7 +458,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
         holding = false; downAt = 0;
       };
       // Full brightness in the hero; calmer behind the rest of the page so text stays readable.
-      const onScroll = () => gpu?.setDim(root.scrollTop < window.innerHeight * 0.5 ? 1 : 0.7);
+      const onScroll = () => gpu?.setDim(root.scrollTop < window.innerHeight * 0.5 ? 1 : 0.8);
       root.addEventListener('scroll', onScroll, { passive: true });
       window.addEventListener('resize', onResize);
       root.addEventListener('pointermove', onMove);

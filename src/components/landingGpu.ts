@@ -375,7 +375,7 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
   geo.setAttribute('aRing', new THREE.BufferAttribute(ring, 3));
   const mat = new THREE.ShaderMaterial({
     vertexShader: RENDER_VERT, fragmentShader: RENDER_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { tPos: { value: null }, tVel: { value: null }, uSize: { value: N > 30000 ? 2.0 : 3.0 }, uPR: { value: PR }, uRingMix: { value: 0 }, uHeat: { value: 0 }, uGain: { value: Math.min(1, Math.sqrt(11000 / N)) }, uDim: { value: 1 } },
+    uniforms: { tPos: { value: null }, tVel: { value: null }, uSize: { value: N > 30000 ? 2.0 : 3.0 }, uPR: { value: PR }, uRingMix: { value: 0 }, uHeat: { value: 0 }, uGain: { value: Math.min(1, Math.sqrt(16000 / N)) }, uDim: { value: 1 } },
   });
   const points = new THREE.Points(geo, mat);
   points.frustumCulled = false;
@@ -387,7 +387,7 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.95;
+    renderer.toneMappingExposure = 1.05;
     bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.4, 0.5, 0.42);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
@@ -408,7 +408,9 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
   const introSteps: Intro[] = opts.intro ? [
     { at: 0.0, from: 6, to: 6, dur: 0.1, spring: 2.5, turb: 0.15, heat: 0.2 },
     { at: 1.7, from: 6, to: 5, dur: 1.1, spring: 13, turb: 2.6, shock: 3.2, heat: 1 },
-    { at: 4.5, from: 5, to: 0, dur: 1.4, spring: 18, turb: 1.4, shock: 2.2, heat: 0.7, done: true },
+    // The name locks crisp: no turbulence, tight springs, held about three seconds.
+    { at: 2.7, from: 5, to: 5, dur: 0.1, spring: 34, turb: 0, heat: 0.35 },
+    { at: 6.2, from: 5, to: 0, dur: 1.4, spring: 18, turb: 1.4, shock: 2.2, heat: 0.7, done: true },
   ] : [];
   let chargeHold = 0, introClock = 0, introAt = 0, introStep = -1, introOn = opts.intro, introA = 0, introB = 0, introMix = 1, introMixDur = 1, introSince = 0;
 
@@ -538,7 +540,7 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
     for (let k = 0; k < steps; k++) { t += dt; vu.uTime.value = t; gpu.compute(); }
     mat.uniforms.tPos.value = gpu.getCurrentRenderTarget(posVar).texture;
     mat.uniforms.tVel.value = gpu.getCurrentRenderTarget(velVar).texture;
-    if (bloom) bloom.strength = Math.min(1.0, 0.48 + heat * 0.45 + holdLevel * 0.35 + Math.min(0.2, Math.abs(scrollV) / 8000));
+    if (bloom) bloom.strength = Math.min(1.05, 0.55 + heat * 0.45 + holdLevel * 0.35 + Math.min(0.2, Math.abs(scrollV) / 8000));
     dimNow += (dimTarget - dimNow) * Math.min(1, real * 3);
     mat.uniforms.uDim.value = dimNow;
     if (composer) composer.render(); else renderer.render(scene, camera);
