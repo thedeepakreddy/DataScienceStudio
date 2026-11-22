@@ -41,7 +41,6 @@ import AiKeySheet from './components/AiKeySheet';
 import AiModelUpdate, { type AiModelInfo } from './components/AiModelUpdate';
 import { aiKeyHeaders, getUserGeminiKey, AI_KEY_CHANGED_EVENT } from './utils/aiKey';
 import { buildAdvisoryFallback } from './utils/advisoryFallback';
-import LoadingScreen from './components/LoadingScreen';
 import Landing from './components/Landing';
 import { usePipelineContext, PipelineStage } from './contexts/PipelineContext';
 import { STAGES, STAGE_ORDER } from './stages';
@@ -60,7 +59,6 @@ import SwarmPanel from './components/SwarmPanel';
 import MoreMenu from './components/MoreMenu';
 import AgentCursorLayer from './components/AgentCursorLayer';
 import SwarmTakeover from './components/SwarmTakeover';
-import WelcomeSwarm from './components/WelcomeSwarm';
 import { useSwarm } from './swarm/useSwarm';
 import { OPEN_STEP_EVENT, RUN_LOGGED_EVENT } from './swarm/interaction';
 import { runSandboxedDatasetJs } from './utils/sandbox';
@@ -83,15 +81,8 @@ function initialTheme(): Theme {
 }
 
 export default function App() {
-  const [showLoading, setShowLoading] = useState(true);
-  // Stable identity across re-renders - LoadingScreen's dismiss timer effect
-  // depends on this callback, so a fresh function reference on every App
-  // render would keep restarting that timer for as long as showLoading stays true.
-  const handleLoadingComplete = useCallback(() => setShowLoading(false), []);
-  // The agents' welcome, every time the studio opens (after the loading screen).
-  const [showWelcome, setShowWelcome] = useState(true);
-  const closeWelcome = useCallback(() => setShowWelcome(false), []);
-  // The front page, under the welcome; Try for free opens the studio.
+  // The front page opens the app (its own 3D intro replaces a loading screen,
+  // and its live panels show the agents at work); Try for free opens the studio.
   const [showLanding, setShowLanding] = useState(true);
   const closeLanding = useCallback(() => setShowLanding(false), []);
   const {
@@ -696,9 +687,6 @@ export default function App() {
     <PinTargetContext.Provider value={pinTarget}>
     <StudioDataContext.Provider value={studioData}>
     <div className="min-h-screen flex flex-col bg-canvas text-label" id="workstation_app">
-      <AnimatePresence>
-        {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
-      </AnimatePresence>
 
       {/* Toolbar: identity on the left, global controls on the right. */}
       <header className="bg-canvas">
@@ -1129,8 +1117,7 @@ export default function App() {
       {/* Assistive Touch Dynamic Gemini Co-pilot (Drag and move anywhere, controls all pipeline stages & data) */}
       {/* The agents at work on this page, and the user's way to take over. */}
       <AgentCursorLayer />
-      {!showLoading && showLanding && <Landing onStart={closeLanding} />}
-      {!showLoading && showWelcome && <WelcomeSwarm onClose={closeWelcome} />}
+      {showLanding && <Landing onStart={closeLanding} />}
       <SwarmTakeover status={swarm.run?.status ?? null} onPause={swarm.pause} onResume={swarm.resume} onCancel={swarm.cancel} />
 
       <AssistiveTouchBot

@@ -6,21 +6,22 @@
 import React from 'react';
 
 /**
- * The product mark. The artwork lives in /public (logo.png here; favicon and
- * home-screen sizes alongside it), so the same icon is used everywhere.
+ * The product mark: the "D" with its bars, on no tile (transparent), so it sits
+ * directly on the page. A dark "D" for light backgrounds and a silver one for
+ * dark backgrounds (/public/logo-mark*.png); `tone="auto"` follows the theme.
+ * The favicon and home-screen icons keep the full tile.
  */
-export default function AppIcon({ size = 28, className = '' }: { size?: number; className?: string }) {
+export default function AppIcon({ size = 28, className = '', tone = 'auto' }: { size?: number; className?: string; tone?: 'auto' | 'onLight' | 'onDark' }) {
+  const img = (src: string, cls: string) => (
+    <img src={src} width={size} height={size} alt="Data Science Studio" draggable={false}
+      className={`shrink-0 select-none object-contain ${cls} ${className}`} style={{ width: size, height: size }} />
+  );
+  if (tone === 'onDark') return img('/logo-mark-light.png', '');
+  if (tone === 'onLight') return img('/logo-mark.png', '');
   return (
-    <img
-      src="/logo.png"
-      width={size}
-      height={size}
-      alt="Data Science Studio"
-      draggable={false}
-      className={`shrink-0 select-none ${className}`}
-      // The tile is near-white, so a hairline and a soft shadow keep its edge
-      // visible on the light canvas; both follow the icon's rounded shape.
-      style={{ filter: 'drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.28)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))' }}
-    />
+    <>
+      {img('/logo-mark.png', 'dark:hidden')}
+      {img('/logo-mark-light.png', 'hidden dark:block')}
+    </>
   );
 }

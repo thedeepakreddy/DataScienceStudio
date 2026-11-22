@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronRight, Copy } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronRight, Copy, Eye, MessageSquareText, ShieldCheck, Users } from 'lucide-react';
 import { AGENTS } from '../swarm/agents';
 import { STAGES, STAGE_ORDER } from '../stages';
 import { CAPABILITIES as ENGINE_CAPABILITIES } from '../engine/contract.generated';
@@ -335,6 +335,44 @@ function Marquee() {
   );
 }
 
+/** What the agents do (formerly the separate welcome). */
+const TEAM_POINTS = [
+  { Icon: MessageSquareText, text: 'Give them a goal in plain words: “find why customers leave and build a dashboard”.' },
+  { Icon: Users, text: 'They plan it, split it across specialists and do the work in your studio, step by step, in order.' },
+  { Icon: Eye, text: 'You watch every step, and can pause, stop or undo any of it.' },
+  { Icon: ShieldCheck, text: 'They check each other: a verifier recomputes the results, so nothing is made up.' },
+];
+
+/** The team: what they do, and every specialist in their colour. */
+function Team() {
+  return (
+    <section id="lp-team" data-cursor-scene="team" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 grid grid-cols-1 lg:grid-cols-[1fr_1.15fr] gap-12 items-start scroll-mt-24">
+      <div data-reveal>
+        <p className="font-eyebrow text-[18px]" style={{ color: C.mute }}>Your AI team</p>
+        <h2 data-skew className="mt-5 font-semibold leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.024em' }}>{AGENT_COUNT} specialists that work right on your page.</h2>
+        <ul className="mt-9 space-y-5">
+          {TEAM_POINTS.map(({ Icon, text }) => (
+            <li key={text} className="flex items-start gap-4 text-[17px] sm:text-[18px] leading-relaxed" style={{ color: '#d6d6d6' }}>
+              <span className="mt-0.5 w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center lp-glass" style={{ background: 'rgba(91,120,179,0.16)', color: '#9db4e6' }}><Icon className="w-5 h-5" /></span>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-8 text-[16px]" style={{ color: C.mute }}>To give them a task in the studio, tap <span style={{ color: '#9db4e6' }}>Ask AI</span>, the floating button.</p>
+      </div>
+      <div className="flex flex-wrap gap-2.5" style={{ perspective: 1200 }}>
+        {(Object.keys(AGENTS) as AgentRole[]).map(role => (
+          <div key={role} data-burst data-agent-chip={AGENTS[role].name} title={AGENTS[role].focus}
+            className="lp-chip lp-glass rounded-full pl-2.5 pr-4 py-2 flex items-center gap-2.5 text-[15px]" style={{ background: C.card }}>
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: AGENTS[role].color, boxShadow: `0 0 14px ${AGENTS[role].color}` }} />
+            <span>{AGENTS[role].name}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 const PAGE_CURSORS: AgentRole[] = ['orchestrator', 'statistician', 'ml_engineer', 'verifier', 'data_engineer'];
 
 /** The agents' cursors on the page itself; the scroll motion sends them to each section. */
@@ -355,6 +393,9 @@ export default function Landing({ onStart }: { onStart: () => void }) {
   const demo = useMemo(() => demoResults(), []);
   const [menu, setMenu] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  // The opening: the 3D intro plays while the page waits; 'done' reveals the page.
+  const [intro, setIntro] = useState<'playing' | 'done'>(() => (still() ? 'done' : 'playing'));
+  const skipRef = useRef<() => void>(() => setIntro('done'));
   const scroller = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
@@ -365,26 +406,93 @@ export default function Landing({ onStart }: { onStart: () => void }) {
     let cancelled = false, cleanup = () => {};
     const css = getComputedStyle(document.documentElement);
     const colors = Object.values(AGENTS).map(a => css.getPropertyValue(a.color.replace(/^var\((--[^,)]+).*$/, '$1')).trim()).filter(Boolean);
-    Promise.all([import('./landingScene'), import('./landingMotion')]).then(([{ createDataField }, { initLandingMotion }]) => {
+    const phone = window.innerWidth < 768;
+    // ?lpintro=0.2 plays the intro in slow motion (for checking it frame by frame).
+    const introSpeed = Math.min(1, Math.max(0.05, Number(new URLSearchParams(window.location.search).get('lpintro')) || 1));
+    const reveal = () => { if (!cancelled) setIntro('done'); };
+    // If anything goes wrong or is slow, the page shows anyway: 12 s to start,
+    // then at most 7 s of intro.
+    let safety = setTimeout(reveal, 12000);
+    Promise.all([import('./landingScene'), import('./landingMotion'), import('./landingGpu')]).then(async ([{ createDataField }, { initLandingMotion }, gpuMod]) => {
       if (cancelled) return;
       const calm = still();
       let field: import('./landingScene').DataField | null = null;
-      try { field = createDataField(cv, { count: window.innerWidth < 768 ? 2600 : 6000, r: demo.r, agentColors: colors, still: calm }); } catch { field = null; }
+      let gpu: import('./landingGpu').GpuField | null = null;
+      if (!calm && gpuMod.gpuFieldSupported()) {
+        try {
+          const tier = gpuMod.gpuTier();
+          gpu = await gpuMod.createGpuField(cv, { size: tier === 'high' ? 256 : tier === 'low' ? 128 : 72, r: demo.r, agentColors: colors, intro: true, bloom: tier === 'high', onIntroDone: reveal, introSpeed });
+          field = gpu;
+        } catch (err) { console.warn('GPU field unavailable, using the simple field.', err); gpu = null; }
+      }
+      if (cancelled) { gpu?.dispose(); return; }
+      clearTimeout(safety);
+      safety = setTimeout(reveal, 7000 / introSpeed);
+      if (!field) {
+        try { field = createDataField(cv, { count: phone ? 2600 : 6000, r: demo.r, agentColors: colors, still: calm }); } catch { field = null; }
+        reveal();
+      }
+      root.dataset.engine = gpu ? 'gpu' : field ? 'simple' : 'none';
+      skipRef.current = () => { if (gpu) gpu.skipIntro(); else reveal(); };
+      const ndc = (e: PointerEvent) => [(e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1] as const;
       const onResize = () => field?.resize();
-      const onMove = (e: PointerEvent) => field?.setPointer((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
-      const onLeave = () => field?.setPointer(null, null);
+      const onMove = (e: PointerEvent) => { const [x, y] = ndc(e); field?.setPointer(x, y); };
+      const onLeave = () => { field?.setPointer(null, null); gpu?.hold(false); };
+      // Click anywhere on the page (not on a control): a shockwave. Hold: a black hole that explodes on release.
+      let downAt = 0, holdTimer: ReturnType<typeof setTimeout> | null = null, holding = false;
+      const interactive = (e: Event) => !!(e.target as HTMLElement | null)?.closest('a,button,input,textarea,select,[role=tab],[role=menu],pre');
+      const onDown = (e: PointerEvent) => {
+        if (!gpu || interactive(e) || e.button > 0) return;
+        downAt = performance.now();
+        const [x, y] = ndc(e);
+        holdTimer = setTimeout(() => { holding = true; gpu?.hold(true, x, y); }, 180);
+      };
+      const onUp = (e: PointerEvent) => {
+        if (!gpu || !downAt) return;
+        if (holdTimer) clearTimeout(holdTimer);
+        const [x, y] = ndc(e);
+        if (holding) gpu.hold(false, x, y);
+        else if (performance.now() - downAt < 400) gpu.shock(x, y, 1.4);
+        holding = false; downAt = 0;
+      };
       window.addEventListener('resize', onResize);
       root.addEventListener('pointermove', onMove);
       root.addEventListener('pointerleave', onLeave);
-      const stopMotion = calm ? () => {} : initLandingMotion(root, field, { cursors: window.innerWidth >= 900 });
-      cleanup = () => { stopMotion(); window.removeEventListener('resize', onResize); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerleave', onLeave); field?.dispose(); };
-    }).catch(() => undefined);
-    return () => { cancelled = true; cleanup(); };
+      root.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointerup', onUp);
+      // Panels pull streams of particles to trace their borders: the three most on screen.
+      gpu?.setRects(() => {
+        const vh = window.innerHeight;
+        return [...root.querySelectorAll<HTMLElement>('[data-stream]')]
+          .map(el => el.getBoundingClientRect())
+          .filter(r => r.bottom > 0 && r.top < vh && r.width > 0)
+          .sort((a, b) => Math.abs(a.top + a.height / 2 - vh / 2) - Math.abs(b.top + b.height / 2 - vh / 2))
+          .slice(0, 3);
+      });
+      const stopMotion = calm ? () => {} : initLandingMotion(root, field, { cursors: window.innerWidth >= 900, gpu });
+      cleanup = () => {
+        clearTimeout(safety);
+        stopMotion();
+        window.removeEventListener('resize', onResize); window.removeEventListener('pointerup', onUp);
+        root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerleave', onLeave); root.removeEventListener('pointerdown', onDown);
+        field?.dispose();
+      };
+    }).catch(err => { console.error('Front page motion failed', err); reveal(); });
+    return () => { cancelled = true; clearTimeout(safety); cleanup(); };
     // Set up once for the page's life.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const start = useCallback(() => { setLeaving(true); setTimeout(onStart, 380); }, [onStart]);
   const goTo = (id: string) => scroller.current?.querySelector(`#${id}`)?.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'start' });
+
+  useEffect(() => {
+    if (intro !== 'playing') return;
+    const skip = () => skipRef.current();
+    window.addEventListener('keydown', skip);
+    window.addEventListener('wheel', skip, { passive: true });
+    window.addEventListener('touchmove', skip, { passive: true });
+    return () => { window.removeEventListener('keydown', skip); window.removeEventListener('wheel', skip); window.removeEventListener('touchmove', skip); };
+  }, [intro]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false); };
@@ -395,19 +503,27 @@ export default function Landing({ onStart }: { onStart: () => void }) {
   const navItems: Array<[string, string]> = [['Studio', 'lp-steps'], ['Agents', 'lp-products'], ['Engine', 'lp-engine'], ['Developers', 'lp-developers'], ['Platform', 'lp-platform']];
 
   return (
-    <div ref={scroller} role="dialog" aria-modal="true" aria-label="Data Science Studio" data-landing
-      className="fixed inset-0 z-[10000] overflow-y-auto overflow-x-hidden"
+    <div ref={scroller} role="dialog" aria-modal="true" aria-label="Data Science Studio" data-landing data-intro={intro}
+      className={`fixed inset-0 z-[10000] overflow-x-hidden ${intro === 'done' ? 'overflow-y-auto' : 'overflow-hidden'}`}
       style={{ background: C.bg, color: C.text, opacity: leaving ? 0 : 1, transition: 'opacity 380ms ease', fontFamily: LP_SANS, colorScheme: 'dark', fontFeatureSettings: '"ss01", "cv11"', WebkitFontSmoothing: 'antialiased' }}>
 
       {/* The 3D data field behind everything, and the agents' cursors above it. */}
       <canvas ref={canvas} aria-hidden="true" className="fixed inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }} />
       <PageCursors />
 
+      {/* While the intro plays: a quiet line and a way to skip it. */}
+      {intro === 'playing' && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-3 pb-10 pointer-events-none lp-intro-ui">
+          <p className="font-eyebrow text-[15px] tracking-[0.2em]" style={{ color: 'rgba(245,245,245,0.55)' }}>{ENGINE_COUNT} analyses · {AGENT_COUNT} agents · one studio</p>
+          <button type="button" onClick={() => skipRef.current()} className="pointer-events-auto text-[13px] px-4 py-1.5 rounded-full lp-dark-btn" style={{ background: 'rgba(29,29,29,0.7)' }}>Skip intro</button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-30" style={{ background: 'rgba(10,10,10,0.82)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: `1px solid ${C.line}` }}>
         <div className="mx-auto max-w-[1400px] h-[68px] px-4 sm:px-6 lg:px-8 flex items-center gap-6 lg:gap-10">
           <button type="button" onClick={() => scroller.current?.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 shrink-0" aria-label="Back to the top">
-            <AppIcon size={30} />
+            <AppIcon size={30} tone="onDark" />
             <span className="hidden sm:inline font-brand text-[20px] leading-none">Data Science Studio</span>
           </button>
           <nav className="hidden lg:flex items-center gap-8 text-[15.5px]" aria-label="Sections">
@@ -454,20 +570,22 @@ export default function Landing({ onStart }: { onStart: () => void }) {
 
       {/* Live panels: the agents at work */}
       <section id="lp-products" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 -mt-[14vh] grid grid-cols-1 md:grid-cols-3 gap-5 scroll-mt-24" style={{ perspective: 1400 }}>
-        <div data-tilt><ChatPanel demo={demo} onExplore={start} /></div>
-        <div data-tilt><EnginePanel demo={demo} onExplore={() => goTo('lp-engine')} /></div>
-        <div data-tilt><DashboardPanel demo={demo} onExplore={start} /></div>
+        <div data-tilt data-stream><ChatPanel demo={demo} onExplore={start} /></div>
+        <div data-tilt data-stream><EnginePanel demo={demo} onExplore={() => goTo('lp-engine')} /></div>
+        <div data-tilt data-stream><DashboardPanel demo={demo} onExplore={start} /></div>
       </section>
 
       <section className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-5 grid grid-cols-1 lg:grid-cols-2 gap-5" style={{ perspective: 1400 }}>
-        <div data-tilt><CleanPanel demo={demo} onExplore={start} /></div>
-        <div data-tilt>
+        <div data-tilt data-stream><CleanPanel demo={demo} onExplore={start} /></div>
+        <div data-tilt data-stream>
           <Card className="h-[480px] flex items-center justify-center">
             <div className="-mt-6"><LiquidSphere size={330} /></div>
             <CardFoot label="Ask AI" onExplore={start} />
           </Card>
         </div>
       </section>
+
+      <Team />
 
       <div className="relative z-10"><Marquee /></div>
 
@@ -489,7 +607,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
             ))}
           </dl>
         </Reveal>
-        <div data-from="right"><CodeWindow /></div>
+        <div data-from="right" data-stream><CodeWindow /></div>
       </section>
 
 
@@ -608,7 +726,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       <footer className="relative z-10 mt-10" style={{ borderTop: `1px solid ${C.line}`, background: 'rgba(11,11,11,0.92)' }}>
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-16 grid grid-cols-1 lg:grid-cols-[1fr_2.2fr] gap-12">
           <div className="lg:border-r lg:border-dashed pr-8" style={{ borderColor: C.line }}>
-            <div className="flex items-center gap-2.5"><AppIcon size={28} /><span className="font-brand text-[20px] leading-none">Data Science Studio</span></div>
+            <div className="flex items-center gap-2.5"><AppIcon size={28} tone="onDark" /><span className="font-brand text-[20px] leading-none">Data Science Studio</span></div>
             <p className="mt-4 text-[14px]" style={{ color: C.mute }}>© {new Date().getFullYear()} AskDeepakAI · Deepak Reddy</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-[16px]">
