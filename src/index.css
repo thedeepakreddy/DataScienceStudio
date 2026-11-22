@@ -976,3 +976,14 @@
 .lp-grain-panel::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.35; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 @media (prefers-reduced-motion: reduce) { .lp-rim, .lp-caret, .lp-dots, .lp-in { animation: none; } }
+/* Front page motion: rise on load, reveal on scroll, typing dots. */
+.lp-rise { animation: lp-rise 1000ms cubic-bezier(.16,.8,.24,1) both; }
+@keyframes lp-rise { from { opacity: 0; transform: translateY(28px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+.lp-reveal { opacity: 0; transform: translateY(32px) scale(0.985); transition: opacity 900ms cubic-bezier(.16,.8,.24,1), transform 1000ms cubic-bezier(.16,.8,.24,1); }
+.lp-reveal.is-in { opacity: 1; transform: none; }
+.lp-typing { width: 6px; height: 6px; border-radius: 999px; background: #8b8b8b; animation: lp-typing 1s ease-in-out infinite; }
+@keyframes lp-typing { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+[data-landing] .lp-panel, [data-landing] .lp-tile, [data-landing] .lp-area { transition: background 300ms ease, box-shadow 300ms ease, opacity 900ms cubic-bezier(.16,.8,.24,1), transform 1000ms cubic-bezier(.16,.8,.24,1); }
+[data-landing] .lp-panel:hover, [data-landing] .lp-tile:hover { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.09); }
+[data-landing] .lp-area:hover { background: #181818 !important; }
+@media (prefers-reduced-motion: reduce) { .lp-rise { animation: none; } .lp-reveal { opacity: 1; transform: none; transition: none; } .lp-typing { animation: none; } }

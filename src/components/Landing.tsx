@@ -10,6 +10,7 @@ import { STAGES, STAGE_ORDER } from '../stages';
 import { CAPABILITIES as ENGINE_CAPABILITIES } from '../engine/contract.generated';
 import { demoResults } from './welcomeDemo';
 import AppIcon from './AppIcon';
+import { ChatPanel, CleanPanel, CountUp, DashboardPanel, EnginePanel, Reveal, useInView } from './landingPanels';
 import { ThinkingOrb } from 'thinking-orbs';
 import type { OrbState } from 'thinking-orbs';
 
@@ -46,7 +47,6 @@ const PLATFORM = [
 ];
 
 const WORDS = ['clean', 'test', 'model', 'forecast', 'explain', 'report'];
-const pct = (x: number) => `${Math.round(x * 100)}%`;
 const LP_SANS = '"Geist", "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
 const LP_MONO = '"Geist Mono", ui-monospace, "SF Mono", Menlo, monospace';
 const still = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -96,25 +96,6 @@ function TypedWord() {
       <span aria-hidden="true" className="absolute left-0 right-0" style={{ bottom: '-0.04em', height: 3, borderRadius: 2, background: '#4a4a4a' }} />
     </span>
   );
-}
-
-/** Lines that appear one after another, then start over: a panel at work. */
-function useSequence(count: number, stepMs: number, holdMs: number) {
-  const [n, setN] = useState(still() ? count : 0);
-  useEffect(() => {
-    if (still()) return;
-    let k = 0, alive = true;
-    let t: ReturnType<typeof setTimeout>;
-    const next = () => {
-      if (!alive) return;
-      k = k >= count ? 0 : k + 1;
-      setN(k);
-      t = setTimeout(next, k >= count ? holdMs : k === 0 ? 400 : stepMs);
-    };
-    t = setTimeout(next, 500);
-    return () => { alive = false; clearTimeout(t); };
-  }, [count, stepMs, holdMs]);
-  return n;
 }
 
 /** The Ask AI orb's real states, as the studio uses them (Orb.tsx). */
@@ -273,23 +254,37 @@ function CodeWindow() {
   const [tab, setTab] = useState<'Python' | 'TypeScript' | 'cURL'>('Python');
   const [copied, setCopied] = useState(false);
   const code = (tab === 'Python' ? PY : tab === 'TypeScript' ? TS : CURL)('models.automl');
+  // The code types itself out the first time it is seen; a tab change shows it whole.
+  const [ref, seen] = useInView<HTMLDivElement>(0.3, true);
+  const [shown, setShown] = useState(still() ? Infinity : 0);
+  useEffect(() => {
+    if (!seen || still()) return;
+    let n = 0, raf = 0, last = performance.now();
+    const tick = (t: number) => {
+      n += Math.max(1, Math.round((t - last) / 9)); last = t;
+      setShown(n);
+      if (n < 2000) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [seen]);
   const copy = async () => {
     try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch { /* clipboard blocked */ }
   };
   return (
-    <div>
+    <div ref={ref}>
       <div className="relative p-6 sm:p-10 lp-grain-panel">
         <div className="relative rounded-[16px] overflow-hidden" style={{ background: '#0d0d0d', border: `1px solid ${C.line}` }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${C.line}` }}>
             <span className="flex gap-2" aria-hidden="true">{['#ff5f57', '#febc2e', '#28c840'].map(c => <span key={c} className="w-3 h-3 rounded-full" style={{ background: c }} />)}</span>
             <button type="button" onClick={copy} className="lp-link text-[13px] inline-flex items-center gap-1.5">{copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}{copied ? 'Copied' : 'Copy'}</button>
           </div>
-          <pre className="px-5 py-5 text-[12.5px] sm:text-[13.5px] leading-[1.75] overflow-x-auto" style={{ color: '#e6e6e6', fontFamily: LP_MONO }}><code>{highlight(code)}</code></pre>
+          <pre className="px-5 py-5 text-[12.5px] sm:text-[13.5px] leading-[1.75] overflow-x-auto" style={{ color: '#e6e6e6', fontFamily: LP_MONO }}><code>{highlight(code.slice(0, shown))}{shown < code.length && <span className="lp-caret" style={{ height: '1em' }} />}</code></pre>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap gap-1" role="tablist">
         {(['Python', 'TypeScript', 'cURL'] as const).map(t => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
+          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => { setTab(t); setShown(Infinity); }}
             className="px-4 py-2 rounded-full text-[15px] transition-colors" style={{ background: tab === t ? C.pill : 'transparent', color: tab === t ? C.text : C.mute }}>{t}</button>
         ))}
       </div>
@@ -310,35 +305,6 @@ export default function Landing({ onStart }: { onStart: () => void }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  const monthly = demo.byPlan.find(g => g.plan === 'Monthly')!;
-  const yearly = demo.byPlan.find(g => g.plan === 'Yearly')!;
-  const maxRate = Math.max(...demo.byPlan.map(g => g.rate), 0.01);
-
-  // Panel 1: a conversation with the team (the answers are this sample's numbers).
-  const chat: Array<{ me: boolean; text: string }> = [
-    { me: true, text: 'Why do customers leave?' },
-    { me: false, text: `Monthly plans churn at ${pct(monthly.rate)}, yearly at ${pct(yearly.rate)} (${monthly.n + yearly.n} customers).` },
-    { me: true, text: 'Are tenure and charges related?' },
-    { me: false, text: `Yes: r = ${demo.r.toFixed(2)} across all 20 rows.` },
-    { me: true, text: 'Can we predict who leaves?' },
-    { me: false, text: `${pct(demo.model.accuracy)} right on ${demo.model.testRows} customers the model never saw.` },
-  ];
-  const chatN = useSequence(chat.length, 1300, 2600);
-
-  // Panel 2: the engine at work.
-  const log: Array<{ kind: 'cmd' | 'tool' | 'done' | 'diff-' | 'diff+'; text: string; tail?: string }> = [
-    { kind: 'cmd', text: 'Find why customers leave and build a dashboard.' },
-    { kind: 'tool', text: 'quality.check', tail: `${demo.fills.length} blanks found` },
-    ...demo.fills.map(f => ({ kind: 'diff+' as const, text: `${f.col}[${f.row}] = ${f.value}`, tail: 'median' })),
-    { kind: 'tool', text: 'stats.correlation', tail: `r = ${demo.r.toFixed(2)}` },
-    { kind: 'tool', text: 'models.train', tail: `${pct(demo.model.accuracy)} on held-out rows` },
-    { kind: 'done', text: 'Verifier recomputed 3 results', tail: '[done]' },
-  ];
-  const logN = useSequence(log.length, 900, 2600);
-
-  // Panel 3: a request to the Dashboard Designer.
-  const botN = useSequence(3, 1400, 3200);
 
   const navItems: Array<[string, string]> = [['Studio', 'lp-steps'], ['Agents', 'lp-products'], ['Engine', 'lp-engine'], ['Developers', 'lp-developers'], ['Platform', 'lp-platform']];
 
@@ -377,120 +343,45 @@ export default function Landing({ onStart }: { onStart: () => void }) {
 
       {/* Hero */}
       <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 sm:pt-28 text-center">
-        <button type="button" onClick={start} className="inline-flex items-center gap-2 sm:gap-3 h-11 pl-2 pr-2 rounded-full text-[13.5px] sm:text-[15px] lp-badge max-w-full">
+        <button type="button" onClick={start} style={{ animationDelay: '80ms' }} className="lp-rise inline-flex items-center gap-2 sm:gap-3 h-11 pl-2 pr-2 rounded-full text-[13.5px] sm:text-[15px] lp-badge max-w-full">
           <span className="px-2.5 py-0.5 rounded-full text-[13px]" style={{ background: 'rgba(255,120,40,0.12)', color: '#ff7a2f' }}>New</span>
           <span className="whitespace-nowrap">Tableau and Power BI import</span>
           <span className="hidden md:inline" style={{ color: C.mute }}>· open a workbook as a dashboard</span>
           <span className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: C.pill }}><ArrowUpRight className="w-3.5 h-3.5" /></span>
         </button>
         <h1 className="mt-10 mx-auto max-w-[1100px] font-medium leading-[1.02]" style={{ fontSize: 'clamp(34px, 6.2vw, 92px)', letterSpacing: '-0.045em' }}>
-          A data science team<br /><span className="sm:whitespace-nowrap">for everything you <TypedWord />.</span>
+          <span className="lp-rise block" style={{ animationDelay: '200ms' }}>A data science team</span>
+          <span className="lp-rise block sm:whitespace-nowrap" style={{ animationDelay: '340ms' }}>for everything you <TypedWord />.</span>
         </h1>
-        <p className="mt-8 mx-auto max-w-[860px] text-[17px] sm:text-[21px] leading-relaxed" style={{ color: '#d6d6d6' }}>
+        <p className="lp-rise mt-8 mx-auto max-w-[860px] text-[17px] sm:text-[21px] leading-relaxed" style={{ color: '#d6d6d6', animationDelay: '480ms' }}>
           Clean, explore, test, model, dashboard and report. {AGENT_COUNT} agents do the work on your page; every number comes from a real engine.
         </p>
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+        <div className="lp-rise mt-10 flex flex-wrap items-center justify-center gap-4" style={{ animationDelay: '600ms' }}>
           <button type="button" onClick={start} className="h-[60px] px-8 rounded-full bg-white text-black text-[17px] inline-flex items-center gap-2 hover:bg-white/90 transition-colors">Try for free <ChevronRight className="w-4 h-4" /></button>
           <button type="button" onClick={() => goTo('lp-developers')} className="h-[60px] px-8 rounded-full text-[17px] lp-dark-btn">View the engine</button>
         </div>
       </section>
 
-      {/* Three live panels */}
+      {/* Live panels: the agents at work */}
       <section id="lp-products" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-24 grid grid-cols-1 md:grid-cols-3 gap-5 scroll-mt-24">
-        <Card className="h-[420px]">
-          <div className="px-6 pt-6 flex flex-col gap-3 h-full justify-end pb-20">
-            {chat.slice(0, chatN).slice(-5).map((m, i) => (
-              <div key={`${chatN}-${i}`} className={`lp-in max-w-[85%] px-4 py-2.5 rounded-[18px] text-[14px] leading-snug ${m.me ? 'self-end' : 'self-start'}`}
-                style={{ background: m.me ? '#222' : '#1b1b1b', color: m.me ? C.text : '#d9d9d9' }}>{m.text}</div>
-            ))}
-          </div>
-          <CardFoot label="Agents" onExplore={start} />
-        </Card>
-
-        <Card className="h-[420px]" style={{ background: '#101010' }}>
-          <div className="flex items-center gap-3 px-5 py-3.5 text-[13px]" style={{ borderBottom: `1px solid ${C.line}`, fontFamily: LP_MONO }}>
-            <span className="flex gap-1.5" aria-hidden="true">{['#ff5f57', '#febc2e', '#28c840'].map(c => <span key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}</span>
-            <span style={{ color: C.mute }}>customers.csv</span>
-            <span className="ml-auto flex items-center gap-2" style={{ color: C.mute }}>
-              <span className="w-16 h-2 rounded-sm overflow-hidden" style={{ background: '#2a2a2a' }}><span className="block h-full bg-white/80 transition-[width] duration-500" style={{ width: pct(logN / log.length) }} /></span>
-              {pct(logN / log.length)}
-            </span>
-          </div>
-          <div className="px-5 py-4 space-y-2 text-[13px] leading-relaxed" style={{ fontFamily: LP_MONO }}>
-            {log.slice(0, logN).map((l, i) => (
-              <div key={i} className="lp-in flex gap-2">
-                {l.kind === 'cmd' && <><span style={{ color: '#8b9cff' }}>❯</span><span style={{ color: C.text }}>{l.text}</span></>}
-                {l.kind === 'tool' && <><span style={{ color: C.green }}>▸</span><span style={{ color: C.green }}>{l.text}</span><span style={{ color: C.dim }}>{l.tail}</span></>}
-                {l.kind === 'diff+' && <span className="flex-1 px-2 rounded-sm" style={{ background: 'rgba(46,160,67,0.18)', color: '#d2f5d8' }}>+ {l.text} <span style={{ color: C.dim }}>{l.tail}</span></span>}
-                {l.kind === 'done' && <><span style={{ color: '#c49bff' }}>◆</span><span style={{ color: C.mute }}>{l.text}</span><span className="ml-auto" style={{ color: C.green }}>{l.tail}</span></>}
-              </div>
-            ))}
-            {logN < log.length && <div className="flex gap-2" style={{ color: C.mute }}><span className="lp-dots">⋮</span>Working…</div>}
-          </div>
-          <CardFoot label="Engine" onExplore={() => goTo('lp-developers')} />
-        </Card>
-
-        <Card className="h-[420px]">
-          <div className="px-6 pt-8 flex flex-col gap-4">
-            {botN >= 1 && <div className="lp-in self-end max-w-[88%] px-5 py-3 rounded-[20px] text-[16px] leading-snug" style={{ background: '#ecebe8', color: '#111' }}>build a churn dashboard for monday's review?</div>}
-            {botN >= 2 && <div className="lp-in self-start max-w-[92%] px-5 py-3 rounded-[20px] text-[16px] leading-snug" style={{ background: '#1d1d1d', color: '#e8e8e8' }}>
-              Churn rate by plan, from your rows:
-              <div className="mt-3 space-y-1.5">
-                {demo.byPlan.map(g => (
-                  <div key={g.plan} className="flex items-center gap-2 text-[13px]" style={{ color: C.mute }}>
-                    <span className="w-16">{g.plan}</span>
-                    <span className="h-2.5 rounded-sm" style={{ width: `${(g.rate / maxRate) * 55}%`, background: 'var(--agent-dashboard-designer, #b18cff)' }} />
-                    <span className="tabular-nums" style={{ color: C.text }}>{pct(g.rate)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>}
-            {botN >= 3 && <p className="lp-in text-center text-[15px]" style={{ color: C.mute }}>Pinned to <span style={{ color: C.text }}>Dashboard</span> · {AGENTS.dashboard_designer.name}</p>}
-          </div>
-          <CardFoot label="Dashboard" onExplore={start} />
-        </Card>
+        <Reveal delay={0}><ChatPanel demo={demo} onExplore={start} /></Reveal>
+        <Reveal delay={120}><EnginePanel demo={demo} onExplore={() => goTo('lp-engine')} /></Reveal>
+        <Reveal delay={240}><DashboardPanel demo={demo} onExplore={start} /></Reveal>
       </section>
 
-      {/* Second row: the cleaned table and the sphere */}
       <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card className="h-[480px] p-2">
-          <div className="h-full rounded-[18px] overflow-hidden grid grid-cols-[1.6fr_1fr] gap-2">
-            <div className="rounded-[16px] p-5 overflow-hidden" style={{ background: '#0e0e0e' }}>
-              <p className="text-[12px] uppercase tracking-[0.18em]" style={{ color: C.dim }}>customers.csv · 20 rows</p>
-              <table className="mt-4 w-full text-[13px] tabular-nums" style={{ fontFamily: LP_MONO }}>
-                <thead><tr style={{ color: C.dim }}>{['id', 'plan', 'tenure', 'charges'].map(h => <th key={h} className="text-left font-normal pb-2">{h}</th>)}</tr></thead>
-                <tbody>
-                  {demo.rows.slice(0, 9).map((r, i) => {
-                    const filled = (c: 'tenure' | 'charges') => demo.fills.some(f => f.row === i && f.col === c);
-                    return (
-                      <tr key={r.id} style={{ borderTop: `1px solid ${C.line}` }}>
-                        <td className="py-1.5" style={{ color: C.dim }}>{r.id}</td>
-                        <td style={{ color: '#cfcfcf' }}>{r.plan}</td>
-                        {(['tenure', 'charges'] as const).map(c => <td key={c} style={{ color: filled(c) ? C.green : '#cfcfcf' }}>{String(r[c])}{filled(c) && <span style={{ color: C.dim }}> ←</span>}</td>)}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="rounded-[16px] p-5 flex flex-col" style={{ background: '#0e0e0e' }}>
-              <p className="text-[12px] uppercase tracking-[0.18em]" style={{ color: C.dim }}>Filled</p>
-              {demo.fills.map(f => <p key={`${f.row}${f.col}`} className="mt-3 text-[15px]"><span style={{ color: C.green }}>{f.value}</span> <span style={{ color: C.mute }}>{f.col}, row {f.row + 1}</span></p>)}
-              <p className="mt-auto text-[13px] leading-relaxed" style={{ color: C.mute }}>Each blank took its column’s median, and every change is a version you can undo.</p>
-            </div>
-          </div>
-          <CardFoot label="Clean" onExplore={start} />
-        </Card>
-
-        <Card className="h-[480px] flex items-center justify-center">
-          <div className="-mt-6"><LiquidSphere size={330} /></div>
-          <CardFoot label="Ask AI" onExplore={start} />
-        </Card>
+        <Reveal><CleanPanel demo={demo} onExplore={start} /></Reveal>
+        <Reveal delay={120}>
+          <Card className="h-[480px] flex items-center justify-center">
+            <div className="-mt-6"><LiquidSphere size={330} /></div>
+            <CardFoot label="Ask AI" onExplore={start} />
+          </Card>
+        </Reveal>
       </section>
 
       {/* For developers */}
       <section id="lp-developers" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center scroll-mt-24">
-        <div>
+        <Reveal>
           <p className="text-[17px]" style={{ color: C.mute }}>For developers</p>
           <h2 className="mt-5 font-medium leading-[1.04]" style={{ fontSize: 'clamp(40px, 5.2vw, 76px)', letterSpacing: '-0.045em' }}>One engine.<br />Every method.</h2>
           <p className="mt-6 max-w-[620px] text-[18px] sm:text-[20px] leading-relaxed" style={{ color: '#d6d6d6' }}>
@@ -501,29 +392,29 @@ export default function Landing({ onStart }: { onStart: () => void }) {
             <a href={`${REPO}/blob/main/docs/ENGINE_CAPABILITIES.md`} target="_blank" rel="noreferrer" className="h-[56px] px-7 rounded-full text-[17px] inline-flex items-center lp-dark-btn">Read the docs</a>
           </div>
           <dl className="mt-12 flex flex-wrap gap-x-12 gap-y-6">
-            {[[String(ENGINE_COUNT), 'Engine analyses'], [String(AGENT_COUNT), 'Specialist agents'], [String(STAGE_ORDER.length), 'Steps, in order']].map(([v, l]) => (
-              <div key={l}><dt className="text-[19px]">{v}</dt><dd className="mt-1 text-[16px]" style={{ color: C.dim }}>{l}</dd></div>
+            {([[ENGINE_COUNT, 'Engine analyses'], [AGENT_COUNT, 'Specialist agents'], [STAGE_ORDER.length, 'Steps, in order']] as const).map(([v, l]) => (
+              <div key={l}><dt className="text-[19px]"><CountUp to={v} /></dt><dd className="mt-1 text-[16px]" style={{ color: C.dim }}>{l}</dd></div>
             ))}
           </dl>
-        </div>
-        <CodeWindow />
+        </Reveal>
+        <Reveal delay={150}><CodeWindow /></Reveal>
       </section>
 
 
       {/* The engine, area by area (counted from its contract) */}
       <section id="lp-engine" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-10 items-end">
+        <Reveal className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-10 items-end">
           <div>
             <p className="text-[17px]" style={{ color: C.mute }}>The engine</p>
-            <h2 className="mt-5 font-medium leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.045em' }}>{ENGINE_COUNT} analyses,<br />{ENGINE_AREAS.length} disciplines.</h2>
+            <h2 className="mt-5 font-medium leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.045em' }}><CountUp to={ENGINE_COUNT} /> analyses,<br />{ENGINE_AREAS.length} disciplines.</h2>
           </div>
           <p className="text-[18px] sm:text-[20px] leading-relaxed" style={{ color: '#d6d6d6' }}>
             A Python service built on scikit-learn, XGBoost, LightGBM, CatBoost, statsmodels, SciPy, SHAP, Optuna and DuckDB. Every analysis checks its inputs, records its parameters and seed, and can be reproduced as a notebook.
           </p>
-        </div>
+        </Reveal>
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px rounded-[22px] overflow-hidden" style={{ background: C.line }}>
-          {ENGINE_AREAS.map(a => (
-            <div key={a.area} className="p-7" style={{ background: C.card }}>
+          {ENGINE_AREAS.map((a, i) => (
+            <Reveal key={a.area} delay={(i % 3) * 90} className="p-7 lp-area" style={{ background: C.card }}>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[20px] tracking-tight">{a.label}</span>
                 <span className="text-[14px] tabular-nums" style={{ color: C.dim, fontFamily: LP_MONO }}>{String(a.items.length).padStart(2, '0')}</span>
@@ -532,23 +423,25 @@ export default function Landing({ onStart }: { onStart: () => void }) {
                 {a.items.slice(0, 4).map(t => <li key={t}>{t}</li>)}
                 {a.items.length > 4 && <li style={{ color: C.dim }}>and {a.items.length - 4} more</li>}
               </ul>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* Where it runs */}
       <section id="lp-platform" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
-        <p className="text-[17px]" style={{ color: C.mute }}>Where it runs</p>
-        <h2 className="mt-5 max-w-[900px] font-medium leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.045em' }}>Your browser, Render and Google Cloud.</h2>
+        <Reveal>
+          <p className="text-[17px]" style={{ color: C.mute }}>Where it runs</p>
+          <h2 className="mt-5 max-w-[900px] font-medium leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.045em' }}>Your browser, Render and Google Cloud.</h2>
+        </Reveal>
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
-          {PLATFORM.map(p => (
-            <div key={p.name} className="rounded-[22px] p-7 flex flex-col min-h-[300px]" style={{ background: C.card }}>
+          {PLATFORM.map((p, i) => (
+            <Reveal key={p.name} delay={i * 90} className="lp-tile rounded-[22px] p-7 flex flex-col min-h-[300px]" style={{ background: C.card }}>
               <span className="text-[12px] uppercase tracking-[0.18em]" style={{ color: C.dim, fontFamily: LP_MONO }}>{p.where}</span>
               <span className="mt-4 text-[24px] tracking-tight">{p.name}</span>
               <p className="mt-3 text-[15px] leading-relaxed" style={{ color: C.mute }}>{p.what}</p>
               <p className="mt-auto pt-6 text-[13px] leading-relaxed" style={{ color: C.dim, fontFamily: LP_MONO }}>{p.stack}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -556,41 +449,41 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       {/* Big numbers */}
       <section id="lp-numbers" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 scroll-mt-24">
         <div style={{ borderTop: `1px solid ${C.line}` }} className="grid grid-cols-1 md:grid-cols-3">
-          {[[String(ENGINE_COUNT), 'analyses run on a real engine: tests, models, forecasts, causal methods and more'],
-            [String(AGENT_COUNT), 'specialists who plan, do and check the work, step by step'],
-            ['0', 'numbers written by AI: it writes words, plans and code, never metrics']].map(([v, l], i) => (
-            <div key={l} className={`pt-14 pb-6 ${i ? 'md:pl-16' : ''} ${i < 2 ? 'md:border-r' : ''}`} style={{ borderColor: C.line }}>
-              <p className="font-medium leading-none" style={{ fontSize: 'clamp(64px, 8vw, 110px)', letterSpacing: '-0.05em' }}>{v}</p>
+          {([[ENGINE_COUNT, 'analyses run on a real engine: tests, models, forecasts, causal methods and more'],
+            [AGENT_COUNT, 'specialists who plan, do and check the work, step by step'],
+            [0, 'numbers written by AI: it writes words, plans and code, never metrics']] as const).map(([v, l], i) => (
+            <Reveal key={l} delay={i * 120} className={`pt-14 pb-6 ${i ? 'md:pl-16' : ''} ${i < 2 ? 'md:border-r' : ''}`} style={{ borderColor: C.line }}>
+              <p className="font-medium leading-none" style={{ fontSize: 'clamp(64px, 8vw, 110px)', letterSpacing: '-0.05em' }}><CountUp to={v} duration={1800} /></p>
               <p className="mt-6 max-w-[340px] text-[17px] leading-relaxed" style={{ color: C.mute }}>{l}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* The seven steps */}
       <section id="lp-steps" className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 scroll-mt-24">
-        <h2 className="font-medium leading-[1.05]" style={{ fontSize: 'clamp(36px, 4.4vw, 60px)', letterSpacing: '-0.04em' }}>Seven steps, in order.</h2>
+        <Reveal as="div"><h2 className="font-medium leading-[1.05]" style={{ fontSize: 'clamp(36px, 4.4vw, 60px)', letterSpacing: '-0.04em' }}>Seven steps, in order.</h2></Reveal>
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {STAGE_ORDER.map((s, i) => {
             const st = STAGES[s];
             const Icon = st.icon;
             return (
-              <button key={s} type="button" onClick={start} className="lp-step text-left rounded-[22px] p-6 flex flex-col min-h-[220px]" style={{ background: C.card }}>
+              <Reveal key={s} delay={(i % 4) * 90}><button type="button" onClick={start} className="w-full h-full lp-step text-left rounded-[22px] p-6 flex flex-col min-h-[220px]" style={{ background: C.card }}>
                 <span className="flex items-center justify-between"><span className="text-[13px] tabular-nums" style={{ color: C.dim }}>0{i + 1}</span><Icon className="w-5 h-5" style={{ color: C.mute }} /></span>
                 <span className="mt-auto pt-8 block min-h-[118px]">
                   <span className="block text-[22px] tracking-tight">{st.label}</span>
                   <span className="block mt-2 text-[14.5px] leading-relaxed" style={{ color: C.mute }}>{st.description}</span>
                 </span>
-              </button>
+              </button></Reveal>
             );
           })}
-          <button type="button" onClick={start} className="lp-step rounded-[22px] p-6 flex flex-col min-h-[220px] text-left bg-white text-black">
+          <Reveal delay={270}><button type="button" onClick={start} className="w-full h-full lp-step rounded-[22px] p-6 flex flex-col min-h-[220px] text-left bg-white text-black">
             <span className="text-[13px] opacity-60">Start</span>
             <span className="mt-auto pt-8 block min-h-[118px]">
               <span className="text-[22px] tracking-tight inline-flex items-center gap-2">Open the studio <ArrowRight className="w-5 h-5" /></span>
               <span className="block mt-2 text-[14.5px] opacity-60">Import a file, or try a sample.</span>
             </span>
-          </button>
+          </button></Reveal>
         </div>
       </section>
 
@@ -599,8 +492,8 @@ export default function Landing({ onStart }: { onStart: () => void }) {
         {([
           { title: 'Start in your browser', sub: 'Free, with nothing to install:', items: ['Every step, from import to report', `${AGENT_COUNT} agents that work on your page`, 'Your work saved and versioned in your browser', 'Your own Gemini or ARC key, if you like'], cta: 'Try for free', primary: true },
           { title: 'Run it your way', sub: 'Open source, on your own machines:', items: ['The full source on GitHub', 'One command with Docker', 'The engine on Cloud Run, the studio anywhere', 'Notebooks that reproduce every run'], cta: 'View on GitHub', primary: false },
-        ]).map(p => (
-          <Card key={p.title} className="p-8 sm:p-16 flex flex-col">
+        ]).map((p, i) => (
+          <Reveal key={p.title} delay={i * 140}><Card className="h-full p-8 sm:p-16 flex flex-col">
             <h3 className="text-[30px] sm:text-[38px] tracking-tight">{p.title}</h3>
             <p className="mt-3 text-[18px] sm:text-[20px]" style={{ color: '#d6d6d6' }}>{p.sub}</p>
             <div className="my-9 h-px" style={{ background: C.line }} />
@@ -612,7 +505,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
                 ? <button type="button" onClick={start} className="w-full h-[62px] rounded-full bg-white text-black text-[17px] hover:bg-white/90 transition-colors">{p.cta}</button>
                 : <a href={REPO} target="_blank" rel="noreferrer" className="w-full h-[62px] rounded-full text-[17px] inline-flex items-center justify-center lp-outline-btn">{p.cta}</a>}
             </div>
-          </Card>
+          </Card></Reveal>
         ))}
       </section>
 

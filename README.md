@@ -145,7 +145,8 @@ Every number shown is computed from the sample. Then the team flies into the Ask
 ## The front page
 
 After the loading screen and the agents' welcome, the studio opens on a dark front page. **Try for free** (top right, and throughout the page) opens the studio. Everything on it is real:
-- **Live panels** replay the welcome's 20-row sample: a conversation with the team, the engine's run log, the blanks filled with medians and a dashboard chart. Every number is computed from those rows.
+- **Live panels**, as in the agents' welcome: agents move in and do the work on the welcome's 20-row sample. A question is typed and the Orchestrator answers, the engine's run log fills in, the Data Engineer types each median into its blank and the Verifier ticks the results, and the Dashboard Designer drags a chart in and widens it by its curved corner. Every value is computed from those rows. Each panel plays when it scrolls into view and loops while visible.
+- **Motion throughout:** the headline rises in, sections reveal as you scroll, the counts count up, and the API code types itself out. With reduced motion, everything shows its finished state.
 - **Ask AI** shows the studio's own thinking orb, cycling through the states it uses (waiting, planning, running an analysis, training, writing) inside a turning glass sphere.
 - **The engine** lists its analyses by discipline, counted from the engine contract, with sample code (Python, TypeScript, cURL) for the real API.
 - **Where it runs** describes the deployment: your browser, the web server on Render, the engine on Google Cloud Run, Cloud Storage for large files, and AI routing (ARC, then Gemini, or your own keys).
