@@ -82,6 +82,7 @@ export function validatePlan(tasks: TaskSpec[], ds: Dataset | null): PlanProblem
 
 export { mentionedColumns } from './text';
 import { mentionedColumns } from './text';
+import { methodPlan, methodsNamed } from './methodPlan';
 
 const has = (text: string, ...words: string[]) => words.some(w => new RegExp(`\\b${w}`, 'i').test(text));
 
@@ -110,6 +111,17 @@ export function rulePlan(request: string, ds: Dataset | null, opts: { hasModel?:
     return { tasks, reply: tasks.length === 1 ? `I’ll ${tasks[0].why.charAt(0).toLowerCase()}${tasks[0].why.slice(1)}` : `I’ve planned ${tasks.length} tasks.` };
   }
 
+  // A request that names a specialised method ("bayesian", "normally distributed",
+  // "survival", "seasonality" …) gets that engine analysis, with its columns filled in;
+  // what the rules can't fill is left to the AI planner rather than guessed.
+  const named = methodsNamed(request);
+  if (named.length && !has(text, 'everything', 'full analysis', 'end to end', 'end-to-end', 'complete analysis')) {
+    const methodTasks = methodPlan(request, ds, chooseTarget(request, ds, cols));
+    if (methodTasks.length < named.length) return { tasks: [], reply: '' };
+    methodTasks.forEach(m => add(m.capability, m.params, m.why));
+    return { tasks, reply: tasks.length === 1 ? `I’ll run: ${tasks[0].why}` : `I’ve planned ${tasks.length} analyses: ${tasks.map(t => t.why.replace(/\.$/, '')).join('; ')}.` };
+  }
+
   const everything = has(text, 'everything', 'full analysis', 'end to end', 'end-to-end', 'complete analysis', 'whole pipeline', 'all (the )?steps', 'analy[sz]e (this|the|my) data');
   const wants = {
     clean: everything || has(text, 'clean', 'prepare', 'tidy', 'fix (the )?data', 'quality'),
@@ -119,7 +131,7 @@ export function rulePlan(request: string, ds: Dataset | null, opts: { hasModel?:
     test: has(text, 'test', 'significan', 'relationship', 'correlat', 'compare', 'differ', 'associat', 'hypothes'),
     regression: has(text, 'regress'),
     // “Monitor the model for drift” is about a saved model, not training a new one.
-    train: everything || (has(text, 'train', 'model', 'predict', 'classif') && !(has(text, 'drift', 'monitor') && !has(text, 'train'))),
+    train: everything || (has(text, 'train', 'model', 'predict', 'classif', 'likely to (leave|churn|cancel|default|buy|convert)', 'at risk', 'will (leave|churn|cancel)') && !(has(text, 'drift', 'monitor') && !has(text, 'train'))),
     tune: has(text, 'tune', 'tuning', 'optimi[sz]e', 'improve the model', 'hyperparameter'),
     explain: has(text, 'explain', 'feature importance', 'shap', 'what did the model learn'),
     forecast: has(text, 'forecast', 'predict next', 'future', 'next (month|week|quarter|year)'),

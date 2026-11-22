@@ -35,6 +35,8 @@ export async function captureVisuals(root: HTMLElement, onProgress?: (done: numb
       try {
         const data = await toPng(el, {
           pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true,
+          // Fonts are already on the page; reading other sites' font CSS only fails (and logs) in the browser.
+          skipFonts: true,
           filter: n => !(n instanceof HTMLElement && (n.classList.contains('report-edit-only') || n.tagName === 'BUTTON')),
         });
         out.set(el.dataset.reportVisual!, { data, width, height });

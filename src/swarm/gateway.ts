@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { isIdentifierColumn } from '../utils/csvParser';
 import { getEngineState } from '../engine/engineState';
 import type { Dataset } from '../types';
 import { apiFetch } from '../utils/api';
@@ -10,7 +11,7 @@ import { getCachedPlan, setCachedPlan } from '../utils/workspaceStore';
 import { CATALOG_VERSION, catalogForPlanner } from './catalog';
 import { skillsForPlanner } from './skills';
 import { reviewInput } from './orchestratorReview';
-import { PlanProblem, TaskSpec, mentionedColumns, normaliseAiTasks, rulePlan, validatePlan } from './plan';
+import { PlanProblem, TaskSpec, chooseTarget, mentionedColumns, normaliseAiTasks, rulePlan, validatePlan } from './plan';
 
 // Planning with as few AI calls as possible (blueprint 6.1): the built-in
 // rules first, then a verified cached plan for the same request and columns,
@@ -59,12 +60,16 @@ export function offlineReply(request: string, ds: Dataset | null): string {
       : 'No column has missing values.';
   }
   if (/how many columns|which columns|what columns|list (the )?columns|column names/.test(t)) return `${ds.columns.length} columns: ${ds.columns.map(c => `${c.name} (${c.type})`).join(', ')}.`;
+  // Examples built from columns that make sense to use (never IDs or dates for a test).
+  const informative = ds.columns.filter(c => !isIdentifierColumn(c, ds.rowCount) && c.type !== 'datetime');
+  const num = informative.filter(c => c.type === 'numeric');
+  const cat = informative.filter(c => c.type !== 'numeric' && c.distinctCount >= 2 && c.distinctCount <= 12);
+  const idCol = ds.columns.find(c => isIdentifierColumn(c, ds.rowCount));
+  const target = chooseTarget('', ds);
+  const a = num[0]?.name, b = cat[0]?.name ?? num[1]?.name;
   return `I couldn’t match that to an action, and AI planning isn’t available right now. ${ds.filename} has ${ds.rows.length.toLocaleString()} rows × ${ds.columns.length} columns. Try:
-- Clean the data
-- Drop the ${ds.columns[0]?.name ?? 'X'} column
-- Fill missing values with median
-- Test ${ds.columns[0]?.name ?? 'A'} against ${ds.columns[1]?.name ?? 'B'}
-- Train a model to predict ${ds.columns[ds.columns.length - 1]?.name ?? 'Y'}
+- Clean the data${idCol ? `\n- Drop the ${idCol.name} column` : ''}
+- Fill missing values with median${a && b ? `\n- Test ${a} against ${b}` : ''}${a ? `\n- Is ${a} normally distributed?` : ''}${a && b ? `\n- Compare ${a} across ${b} with a Bayesian test` : ''}${target ? `\n- Train a model to predict ${target}` : ''}
 - Full analysis with a report
 - SELECT * FROM dataset LIMIT 10`;
 }

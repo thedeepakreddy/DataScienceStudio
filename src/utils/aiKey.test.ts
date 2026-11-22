@@ -32,3 +32,27 @@ describe('ARC key check', () => {
     expect(looksLikeGeminiKey(arc.slice(0, 40))).toBe(false);
   });
 });
+
+describe('two optional keys and the choice of AI', () => {
+  const store = new Map<string, string>();
+  (globalThis as any).localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) };
+  (globalThis as any).window = { dispatchEvent: () => true };
+  const arc = 'ARC_DEE_' + 'a'.repeat(17) + '_PAK_' + 'b'.repeat(43);
+  const gem = 'AIza' + 'c'.repeat(35);
+  it('keeps an ARC key and a Gemini key side by side and sends both, with the chosen source', async () => {
+    const m = await import('./aiKey');
+    store.clear();
+    m.setUserKey('arc', arc); m.setUserKey('gemini', gem);
+    expect(m.getUserKeys()).toEqual({ arc, gemini: gem });
+    expect(m.aiKeyHeaders()).toEqual({ 'X-Gemini-Api-Key': gem, 'X-Arc-Api-Key': arc });
+    m.setAiSource('mine');
+    expect(m.aiKeyHeaders()['X-AI-Source']).toBe('mine');
+    m.setUserKey('arc', null); m.setUserKey('gemini', null);
+    expect(m.aiKeyHeaders()).toEqual({}); // no keys of your own: the studio's AI, whatever the choice
+  });
+  it('reads an ARC key saved by the older single-key version as the ARC key', async () => {
+    const m = await import('./aiKey');
+    store.clear(); store.set('userGeminiApiKey', arc);
+    expect(m.getUserKeys()).toEqual({ arc, gemini: null });
+  });
+});

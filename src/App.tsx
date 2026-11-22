@@ -797,7 +797,7 @@ export default function App() {
               items={[
                 { label: expertMode ? 'Switch to Beginner' : 'Switch to Expert', icon: <Users className="w-4 h-4" />, onSelect: () => setExpertMode(!expertMode), className: 'min-[380px]:hidden' },
                 { label: 'History', icon: <History className="w-4 h-4" />, onSelect: () => setHistoryOpen(true) },
-                { label: hasOwnKey ? 'Your API key (added)' : 'Use your own API key', icon: <KeyRound className="w-4 h-4" />, onSelect: () => setAiKeySheetOpen(true) },
+                { label: hasOwnKey ? 'AI keys (yours added)' : 'AI keys', icon: <KeyRound className="w-4 h-4" />, onSelect: () => setAiKeySheetOpen(true) },
                 { label: theme === 'dark' ? 'Light appearance' : 'Dark appearance', icon: theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />, onSelect: toggleTheme },
                 { label: 'About the creator', icon: <CircleUser className="w-4 h-4" />, onSelect: () => setIsAboutModalOpen(true) },
               ]}
