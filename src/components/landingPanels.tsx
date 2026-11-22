@@ -117,7 +117,7 @@ function useLoop(visible: boolean, play: (w: (ms: number) => Promise<void>, aliv
 function Foot({ label, onExplore }: { label: string; onExplore: () => void }) {
   return (
     <div className="absolute left-0 right-0 bottom-0 z-10 px-6 pb-5 pt-10 flex items-end justify-between" style={{ background: `linear-gradient(to top, ${C.card} 55%, transparent)` }}>
-      <span className="text-[17px]" style={{ color: C.text }}>{label}</span>
+      <span className="text-[20px] font-semibold" style={{ color: C.text, fontFamily: 'var(--font-display)' }}>{label}</span>
       <button type="button" onClick={onExplore} className="lp-link text-[17px] inline-flex items-center gap-1.5">Explore <ArrowRight className="w-4 h-4" /></button>
     </div>
   );

@@ -141,7 +141,7 @@ export default function StatsPower() {
           <div className="rounded-2xl bg-well p-4 animate-fade-in" role="status">
             {result.solvedFor === 'n' ? (
               <>
-                <p className="text-[28px] font-semibold tracking-tight tabular-nums text-label">{result.n.toLocaleString()} <span className="text-base font-normal text-label-2">{result.unit}</span></p>
+                <p className="text-[30px] font-numeral tabular-nums text-label">{result.n.toLocaleString()} <span className="text-base font-normal text-label-2">{result.unit}</span></p>
                 <p className="mt-1 text-sm text-label-2">
                   needed for a {Math.round(Number(power) * 100)}% chance of detecting {meta.effect} = {effect} at the {alpha} level
                   {result.achievedPower ? ` (this size gives ${(result.achievedPower * 100).toFixed(1)}% power)` : ''}.
@@ -149,7 +149,7 @@ export default function StatsPower() {
               </>
             ) : (
               <>
-                <p className="text-[28px] font-semibold tracking-tight tabular-nums text-label">{(result.power * 100).toFixed(1)}% <span className="text-base font-normal text-label-2">power</span></p>
+                <p className="text-[30px] font-numeral tabular-nums text-label">{(result.power * 100).toFixed(1)}% <span className="text-base font-normal text-label-2">power</span></p>
                 <p className="mt-1 text-sm text-label-2">
                   chance of detecting {meta.effect} = {effect} with {Number(n).toLocaleString()} {unitFor(test)} at the {alpha} level.
                   {result.power < 0.8 && ' Below the usual 80% target — a non-significant result would be hard to interpret.'}

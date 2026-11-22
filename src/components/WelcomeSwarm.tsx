@@ -299,7 +299,7 @@ export default function WelcomeSwarm({ onClose }: { onClose: () => void }) {
         <div className="w-full max-w-[1120px] grid grid-cols-1 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-8 lg:gap-12 items-center">
           {/* What the agents do. */}
           <div className="animate-fade-in">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-label-2">Your AI team</p>
+            <p className="font-eyebrow text-[16px] text-label-2">Your AI team</p>
             <h1 className="font-editorial font-semibold text-label mt-3 leading-[1.02] tracking-[-0.02em]" style={{ fontSize: phone ? 34 : 'clamp(38px, 4.2vw, 52px)' }}>
               {TEAM_SIZE} specialists that work right on your page.
             </h1>

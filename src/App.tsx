@@ -711,7 +711,7 @@ export default function App() {
             aria-label="Data Science Studio — go to Import"
           >
             <span className="shrink-0"><AppIcon size={36} /></span>
-            <span className="hidden sm:inline text-[17px] font-semibold tracking-tight text-label truncate">
+            <span className="hidden sm:inline font-brand text-[21px] leading-none text-label truncate">
               Data Science Studio
             </span>
           </button>
@@ -1112,7 +1112,7 @@ export default function App() {
 
       <footer className="border-t border-separator">
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-label-3">
-          <span>Data Science Studio by AskDeepakAI</span>
+          <span><span className="font-brand text-label-2">Data Science Studio</span> by AskDeepakAI</span>
           <span>
             Designed and engineered by{' '}
             <button

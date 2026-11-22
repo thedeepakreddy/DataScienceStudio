@@ -35,7 +35,7 @@ export default function KPICard({ column }: KPICardProps) {
       <span className="text-xs text-label-2 truncate" title={column}>{column}</span>
 
       <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
-        <span className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-label">{format(avg)}</span>
+        <span className="text-[30px] leading-none font-numeral tabular-nums text-label">{format(avg)}</span>
         <span className="text-xs text-label-3">average</span>
       </div>
 

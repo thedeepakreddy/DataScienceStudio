@@ -308,20 +308,20 @@ export default function EDAReport({ dataset, aiAnalysis, loadingAI, onTriggerAI,
             <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="card p-4">
                 <dt className="text-xs text-label-2">Rows</dt>
-                <dd className="mt-1 text-[28px] leading-none font-semibold tracking-tight tabular-nums text-label">{dataset.rowCount.toLocaleString()}</dd>
+                <dd className="mt-1 text-[30px] leading-none font-numeral tabular-nums text-label">{dataset.rowCount.toLocaleString()}</dd>
               </div>
               <div className="card p-4">
                 <dt className="text-xs text-label-2">Columns</dt>
-                <dd className="mt-1 text-[28px] leading-none font-semibold tracking-tight tabular-nums text-label">{dataset.columns.length}</dd>
+                <dd className="mt-1 text-[30px] leading-none font-numeral tabular-nums text-label">{dataset.columns.length}</dd>
               </div>
               <div className="card p-4">
                 <dt className="text-xs text-label-2">Missing values</dt>
-                <dd className={`mt-1 text-[28px] leading-none font-semibold tracking-tight tabular-nums ${totalMissingCells > 0 ? 'text-orange' : 'text-label'}`}>{overallMissingnessPercent}%</dd>
+                <dd className={`mt-1 text-[30px] leading-none font-numeral tabular-nums ${totalMissingCells > 0 ? 'text-orange' : 'text-label'}`}>{overallMissingnessPercent}%</dd>
                 <dd className="mt-1.5 text-xs text-label-3">{totalMissingCells.toLocaleString()} empty {totalMissingCells === 1 ? 'cell' : 'cells'}</dd>
               </div>
               <div className="card p-4">
                 <dt className="text-xs text-label-2">Duplicate rows</dt>
-                <dd className={`mt-1 text-[28px] leading-none font-semibold tracking-tight tabular-nums ${duplicates.length > 0 ? 'text-red' : 'text-label'}`}>{duplicates.length}</dd>
+                <dd className={`mt-1 text-[30px] leading-none font-numeral tabular-nums ${duplicates.length > 0 ? 'text-red' : 'text-label'}`}>{duplicates.length}</dd>
                 <dd className="mt-1.5 text-xs text-label-3">{duplicates.length === 0 ? 'Every row is unique' : duplicates.length === 1 ? 'group of identical rows' : 'groups of identical rows'}</dd>
               </div>
             </dl>
@@ -602,7 +602,7 @@ export default function EDAReport({ dataset, aiAnalysis, loadingAI, onTriggerAI,
                   </div>
                   <div className="p-4 bg-surface rounded-lg border border-separator text-center">
                     <p className="text-[11px] tabular-nums text-label-3">Extreme Outlier Points</p>
-                    <p className={`text-4xl font-semibold tabular-nums mt-1 ${totalOutliersCount > 0 ? 'text-orange' : 'text-green'}`}>
+                    <p className={`text-4xl font-semibold tabular-nums mt-1 ${totalOutliersCount > 0 ? 'text-orange' : 'text-green'} font-numeral`}>
                       {totalOutliersCount}
                     </p>
                     <span className="text-[11px] text-label-3">records require data checking</span>
