@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Type, FunctionCallingConfigMode } from '@google/genai';
-import { extractJson, ArcCallError, arcConfigFromEnv, arcGenerateContent, arcUserUrl, describeArcFailure, describeVisitorArcFailure, fromOpenAIChat, isArcKey, toJsonSchema, toOpenAIChat } from '../../arcClient';
+import { extractJson, ArcCallError, arcConfigFromEnv, arcSetup, arcGenerateContent, arcUserUrl, describeArcFailure, describeVisitorArcFailure, fromOpenAIChat, isArcKey, toJsonSchema, toOpenAIChat } from '../../arcClient';
 import { classifyGeminiError } from '../../geminiHealth';
 
 const ok = (body: unknown, headers: Record<string, string> = {}) =>
@@ -12,9 +12,13 @@ const completion = (message: object, finish = 'stop') => ({ choices: [{ index: 0
 describe('ARC configuration', () => {
   it('is on only with both ARC_BASE_URL and ARC_API_KEY, model auto by default', () => {
     expect(arcConfigFromEnv({})).toBeNull();
-    expect(arcConfigFromEnv({ ARC_BASE_URL: 'https://arc.example/v1' })).toBeNull();
+    expect(arcConfigFromEnv({ ARC_BASE_URL: 'https://arc.example/v1' })).toBeNull(); // no key, no ARC
     expect(arcConfigFromEnv({ ARC_BASE_URL: ' https://arc.example/v1 ', ARC_API_KEY: ' k ' })).toEqual({ baseUrl: 'https://arc.example/v1', apiKey: 'k', model: 'auto' });
     expect(arcConfigFromEnv({ ARC_BASE_URL: 'u', ARC_API_KEY: 'k', ARC_MODEL: 'arc/fast' })?.model).toBe('arc/fast');
+    // A key alone is enough: the public ARC. Common alternative names work, and a bare host gets /v1.
+    expect(arcConfigFromEnv({ ARC_API_KEY: 'k' })?.baseUrl).toBe('https://arc-ai.run.place/v1');
+    expect(arcConfigFromEnv({ ARC_KEY: 'k', ARC_URL: 'https://my-arc.example/' })?.baseUrl).toBe('https://my-arc.example/v1');
+    expect(arcSetup({ ARC_BASE_URL: 'https://arc.example/v1' })).toMatchObject({ configured: false, missing: ['ARC_API_KEY'], host: 'arc.example' });
   });
 });
 

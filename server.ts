@@ -15,7 +15,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { GoogleGenAI, Type, FunctionCallingConfigMode } from '@google/genai';
 import { FALLBACK_GEMINI_MODELS, findFreeModels, rankGeminiModels, withFallback, type ListedModel, type ProbeOutcome } from './geminiModels';
-import { arcConfigFromEnv, arcGenerateContent, arcUserUrl, describeArcFailure, describeVisitorArcFailure, isArcKey } from './arcClient';
+import { arcConfigFromEnv, arcGenerateContent, arcSetup, arcUserUrl, describeArcFailure, describeVisitorArcFailure, isArcKey } from './arcClient';
 
 const app = express();
 // Render (and most hosts) put the app behind one proxy; trust it so req.ip is the visitor's address.
@@ -82,7 +82,8 @@ const visitorArc = (apiKey: string) => ({ baseUrl: arcUserUrl(), apiKey, model: 
 // provider keys (several per provider) and picks a healthy free model and key, with its own
 // fallback. GEMINI_API_KEY and visitors' own keys stay as fallbacks if ARC can't answer.
 const ARC = arcConfigFromEnv();
-if (ARC) console.log(`[AskDeepakAI AI] Using ARC (${ARC.model}) first; Gemini keys are the fallback.`);
+if (ARC) console.log(`[AskDeepakAI AI] Using ARC at ${new URL(ARC.baseUrl).host} (${ARC.model}) first; Gemini keys are the fallback.`);
+else console.log('[AskDeepakAI AI] ARC is off: set ARC_API_KEY (and ARC_BASE_URL for your own ARC) on this service to route AI through ARC.');
 
 /** True when this request can reach an AI model: through ARC or with either Gemini key. */
 function aiKeyAvailable(): boolean {
@@ -740,8 +741,12 @@ app.get('/api/ai/status', async (req, res) => {
     } catch { /* the failure is recorded in geminiHealth and reported below */ }
   }
   const visitorKeyResult = aiKeyContext.getStore()?.visitorKeyResult;
+  const status = currentAiStatus();
+  // When ARC isn't set up, say so: it's the usual way to keep AI working without a paid Gemini key.
+  const arcHint = !ARC && status.state === 'unavailable' ? ' ARC isn’t set up on this server: add ARC_API_KEY (and ARC_BASE_URL for your own ARC) to route AI through ARC.' : '';
   res.json({
-    ...currentAiStatus(),
+    ...status,
+    message: status.message + arcHint,
     models: geminiModelInfo,
     // Whether this visitor sent their own key, and - if the probe fell back to
     // it - whether it worked. The key itself is never echoed back.
@@ -752,6 +757,7 @@ app.get('/api/ai/status', async (req, res) => {
     visitorKeys: { arc: !!visitorArcKey(), gemini: !!visitorGoogleKey() },
     source: aiKeyContext.getStore()?.source ?? 'studio',
     studioKeys: { arc: !!ARC, gemini: !!ownerGeminiKey() },
+    arc: arcSetup(),
   });
 });
 
