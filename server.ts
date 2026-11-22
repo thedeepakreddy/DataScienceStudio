@@ -32,7 +32,12 @@ app.use(express.json({ limit: '50mb' }));
 // the app's own key can't answer - out of quota, rejected or missing. It is
 // never stored, never logged and never sent anywhere except Google.
 type AiKeyContext = {
+  /** The visitor's Gemini key (or, from older browsers, an ARC key sent in the same header). */
   userKey: string | null;
+  /** The visitor's own ARC key, if they added one. */
+  userArc?: string | null;
+  /** Which AI the visitor wants first: the studio's keys saved on the server, or their own. */
+  source?: 'studio' | 'mine';
   /** What happened when this request fell back to the visitor's key, if it did. */
   visitorKeyResult?: { ok: true } | { ok: false; kind: GeminiFailureKind; detail: string; arc?: boolean };
 };
@@ -43,7 +48,10 @@ const USER_KEY_SHAPE = /^[A-Za-z0-9._~+/=-]{20,300}$/;
 app.use('/api', (req, _res, next) => {
   const raw = req.get('X-Gemini-Api-Key');
   const userKey = raw && USER_KEY_SHAPE.test(raw.trim()) ? raw.trim() : null;
-  aiKeyContext.run({ userKey }, () => next());
+  const rawArc = req.get('X-Arc-Api-Key')?.trim();
+  const userArc = rawArc && isArcKey(rawArc) ? rawArc : null;
+  const source = req.get('X-AI-Source') === 'mine' ? 'mine' : 'studio';
+  aiKeyContext.run({ userKey, userArc, source }, () => next());
 });
 
 const PLACEHOLDER_KEYS = new Set(['MY_GEMINI_API_KEY', 'DUMMY_KEY_FALLBACK']);
@@ -54,11 +62,17 @@ function ownerGeminiKey(): string | null {
 }
 /** The visitor's own key for the current request (Gemini or ARC), if they supplied one. */
 function visitorGeminiKey(): string | null {
-  return aiKeyContext.getStore()?.userKey ?? null;
+  const ctx = aiKeyContext.getStore();
+  return ctx?.userKey ?? ctx?.userArc ?? null;
+}
+/** The visitor's own ARC key: the ARC header, or an ARC key sent the old way. */
+function visitorArcKey(): string | null {
+  const ctx = aiKeyContext.getStore();
+  return ctx?.userArc ?? (ctx?.userKey && isArcKey(ctx.userKey) ? ctx.userKey : null);
 }
 /** The visitor's key only when it is a Google key (an ARC key can't list Gemini models). */
 function visitorGoogleKey(): string | null {
-  const key = visitorGeminiKey();
+  const key = aiKeyContext.getStore()?.userKey ?? null;
   return key && !isArcKey(key) ? key : null;
 }
 /** A visitor's own ARC key goes to their own ARC workspace (ARC picks the model and falls back). */
@@ -349,86 +363,73 @@ async function generateContentWithRetry(_client: GoogleGenAI, params: {
   contents: any;
   config?: any;
 }) {
+  // The routes this request can use, in the order the visitor chose: the studio's AI
+  // (ARC, then GEMINI_API_KEY — both saved on the server) or their own keys (their ARC
+  // key, then their Gemini key). Each side falls back to the other.
+  type Route = 'studio-arc' | 'studio-gemini' | 'my-arc' | 'my-gemini';
+  const store = aiKeyContext.getStore();
   const owner = ownerGeminiKey();
-  const visitor = visitorGeminiKey();
+  const myArc = visitorArcKey();
+  const myGemini = visitorGoogleKey();
+  const studio: Route[] = [...(ARC ? ['studio-arc' as const] : []), ...(owner ? ['studio-gemini' as const] : [])];
+  const mine: Route[] = [...(myArc ? ['my-arc' as const] : []), ...(myGemini ? ['my-gemini' as const] : [])];
+  const order = store?.source === 'mine' ? [...mine, ...studio] : [...studio, ...mine];
 
-  if (ARC) {
-    try {
-      const response = await arcGenerateContent({ ...ARC, timeoutMs: GEMINI_CALL_BUDGET_MS }, params);
-      geminiHealth.lastOk = { at: Date.now(), model: `ARC: ${response.model ?? ARC.model}` };
-      return response;
-    } catch (err: any) {
-      const kind = classifyGeminiError(err);
-      geminiHealth.lastFailure = { at: Date.now(), kind, models: [`ARC (${ARC.model})`], detail: summarizeGeminiError(err), via: 'arc' };
-      if (!owner && !visitor) throw err;
-      console.log(`[AskDeepakAI AI] ARC could not answer (${kind}) - trying the Gemini key directly.`);
-    }
-  }
-
-  if (!owner && !visitor) {
-    geminiHealth.lastFailure = { at: Date.now(), kind: 'no_key', models: [], detail: 'GEMINI_API_KEY is not set.' };
+  if (!order.length) {
+    geminiHealth.lastFailure = { at: Date.now(), kind: 'no_key', models: [], detail: 'No ARC or Gemini key is set.' };
     throw new Error('GEMINI_API_KEY is not set on the server.');
   }
 
-  const ownerResting = Date.now() < ownerKeyRestingUntil;
-  if (owner && ownerResting && !visitor) {
-    throw new Error('AI is unavailable right now (the last attempt failed); using the built-in version.');
-  }
-
-  if (owner && !ownerResting) {
+  let lastError: any = null;
+  for (const route of order) {
     try {
-      let result: { response: any; model: string };
-      try {
-        result = await runAcrossModels(getGeminiClient(), params);
-      } catch (first) {
-        // A retired or renamed model: ask Google for the current ones and try once more.
-        if (!((first as GeminiAttemptError).kinds ?? []).includes('model_unavailable') || !(await refreshGeminiModels(true, owner))) throw first;
-        result = await runAcrossModels(getGeminiClient(), params);
+      if (route === 'studio-arc') {
+        const response = await arcGenerateContent({ ...ARC!, timeoutMs: GEMINI_CALL_BUDGET_MS }, params);
+        geminiHealth.lastOk = { at: Date.now(), model: `ARC: ${response.model ?? ARC!.model}` };
+        return response;
       }
-      const { response, model } = result;
-      geminiHealth.lastOk = { at: Date.now(), model };
-      ownerKeyRestingUntil = 0;
-      return response;
-    } catch (err) {
-      const attempt = err as GeminiAttemptError;
-      ownerKeyRestingUntil = Date.now() + OWNER_KEY_REST_MS;
-      geminiHealth.lastFailure = {
-        at: Date.now(),
-        kind: mostTellingFailure(attempt.kinds ?? []),
-        models: GEMINI_MODELS,
-        detail: summarizeGeminiError(attempt.lastError ?? err),
-      };
-      if (!visitor) throw attempt.lastError ?? err;
-      console.log("[AskDeepakAI Gemini Client] The app's key could not answer - trying the visitor's own key.");
-    }
-  }
-
-  const store = aiKeyContext.getStore();
-  if (isArcKey(visitor)) {
-    try {
-      const response = await arcGenerateContent({ ...visitorArc(visitor), timeoutMs: GEMINI_CALL_BUDGET_MS }, params);
+      if (route === 'studio-gemini') {
+        if (Date.now() < ownerKeyRestingUntil) {
+          lastError ??= new Error('AI is unavailable right now (the last attempt failed); using the built-in version.');
+          continue;
+        }
+        let result: { response: any; model: string };
+        try {
+          result = await runAcrossModels(getGeminiClient(), params);
+        } catch (first) {
+          // A retired or renamed model: ask Google for the current ones and try once more.
+          if (!((first as GeminiAttemptError).kinds ?? []).includes('model_unavailable') || !(await refreshGeminiModels(true, owner!))) throw first;
+          result = await runAcrossModels(getGeminiClient(), params);
+        }
+        geminiHealth.lastOk = { at: Date.now(), model: result.model };
+        ownerKeyRestingUntil = 0;
+        return result.response;
+      }
+      if (route === 'my-arc') {
+        const response = await arcGenerateContent({ ...visitorArc(myArc!), timeoutMs: GEMINI_CALL_BUDGET_MS }, params);
+        if (store) store.visitorKeyResult = { ok: true };
+        return response;
+      }
+      const { response } = await runAcrossModels(new GoogleGenAI({ apiKey: myGemini! }), params);
       if (store) store.visitorKeyResult = { ok: true };
       return response;
-    } catch (err) {
-      if (store) store.visitorKeyResult = { ok: false, kind: classifyGeminiError(err), detail: summarizeGeminiError(err), arc: true };
-      throw err;
+    } catch (err: any) {
+      const attempt = err as GeminiAttemptError;
+      lastError = attempt?.lastError ?? err;
+      if (route === 'studio-arc') {
+        const kind = classifyGeminiError(err);
+        geminiHealth.lastFailure = { at: Date.now(), kind, models: [`ARC (${ARC!.model})`], detail: summarizeGeminiError(err), via: 'arc' };
+      } else if (route === 'studio-gemini') {
+        ownerKeyRestingUntil = Date.now() + OWNER_KEY_REST_MS;
+        geminiHealth.lastFailure = { at: Date.now(), kind: mostTellingFailure(attempt.kinds ?? []), models: GEMINI_MODELS, detail: summarizeGeminiError(lastError) };
+      } else if (store) {
+        const kind = route === 'my-arc' ? classifyGeminiError(err) : mostTellingFailure(attempt.kinds ?? []);
+        store.visitorKeyResult = { ok: false, kind, detail: summarizeGeminiError(lastError), ...(route === 'my-arc' ? { arc: true } : {}) };
+      }
+      console.log(`[AskDeepakAI AI] ${route} could not answer${order.indexOf(route) < order.length - 1 ? ' - trying the next one' : ''}.`);
     }
   }
-  try {
-    const { response } = await runAcrossModels(new GoogleGenAI({ apiKey: visitor! }), params);
-    if (store) store.visitorKeyResult = { ok: true };
-    return response;
-  } catch (err) {
-    const attempt = err as GeminiAttemptError;
-    if (store) {
-      store.visitorKeyResult = {
-        ok: false,
-        kind: mostTellingFailure(attempt.kinds ?? []),
-        detail: summarizeGeminiError(attempt.lastError ?? err),
-      };
-    }
-    throw attempt.lastError ?? err;
-  }
+  throw lastError ?? new Error('No AI route could answer.');
 }
 
 // --- REAL ML COMPUTE: PYTHON MLOPS MICROSERVICE CLIENT ---
@@ -748,6 +749,9 @@ app.get('/api/ai/status', async (req, res) => {
     visitorKeyOk: visitorKeyResult ? visitorKeyResult.ok : null,
     visitorKeyMessage: visitorKeyResult && visitorKeyResult.ok === false ? (visitorKeyResult.arc ? describeVisitorArcFailure(visitorKeyResult.kind) : describeVisitorKeyFailure(visitorKeyResult.kind)) : null,
     visitorKeyKind: visitorGeminiKey() ? (isArcKey(visitorGeminiKey()) ? 'arc' : 'gemini') : null,
+    visitorKeys: { arc: !!visitorArcKey(), gemini: !!visitorGoogleKey() },
+    source: aiKeyContext.getStore()?.source ?? 'studio',
+    studioKeys: { arc: !!ARC, gemini: !!ownerGeminiKey() },
   });
 });
 
