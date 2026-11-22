@@ -8,9 +8,9 @@ import { getEngineState } from '../engine/engineState';
 import type { Dataset } from '../types';
 import { apiFetch } from '../utils/api';
 import { getCachedPlan, setCachedPlan } from '../utils/workspaceStore';
-import { CATALOG_VERSION, catalogForPlanner } from './catalog';
-import { skillsForPlanner } from './skills';
+import { CAPABILITIES, CATALOG_VERSION } from './catalog';
 import { reviewInput } from './orchestratorReview';
+import { catalogLines, compactColumns, relevantCapabilities, rolesLine } from './plannerContext';
 import { PlanProblem, TaskSpec, chooseTarget, mentionedColumns, normaliseAiTasks, rulePlan, validatePlan } from './plan';
 
 // Planning with as few AI calls as possible (blueprint 6.1): the built-in
@@ -113,17 +113,30 @@ export async function planRequest(request: string, ds: Dataset | null, opts: { a
     return { ...empty, tasks: [], reply: offlineReply(request, ds), plannedBy: 'rules', problems: [], answer: true };
   }
 
-  const res = await apiFetch('/api/swarm/plan', {
+  // A small request: only the capabilities this request points to, the specialists who own
+  // them and the columns in a compact form. Small models answer that accurately.
+  const ids = relevantCapabilities(request);
+  const ask = (full: boolean) => apiFetch('/api/swarm/plan', {
     method: 'POST',
     body: JSON.stringify({
       request,
-      catalog: catalogForPlanner(),
-      skills: skillsForPlanner(),
-      dataset: datasetContext(ds),
-      history: (opts.history ?? []).slice(-8).map(h => ({ role: h.role, content: h.content.slice(0, 600) })),
+      catalog: catalogLines(full ? undefined : ids),
+      skills: rolesLine(full ? Object.keys(CAPABILITIES) : ids),
+      dataset: { filename: ds.filename, rows: ds.rows.length, compact: compactColumns(ds) },
+      history: (opts.history ?? []).slice(-4).map(h => ({ role: h.role, content: h.content.slice(0, 300) })),
     }),
   });
-  const body = await res.json().catch(() => null);
+  let res = await ask(false);
+  let body = await res.json().catch(() => null);
+  // A plan that names a capability the short list left out: ask once more with every capability.
+  if (res.ok && body && normaliseAiTasks(body.tasks).some(t => !ids.includes(t.capability))) {
+    const again = await ask(true);
+    const againBody = await again.json().catch(() => null);
+    if (again.ok && againBody) {
+      againBody.usage = { inputTokens: (body.usage?.inputTokens ?? 0) + (againBody.usage?.inputTokens ?? 0), outputTokens: (body.usage?.outputTokens ?? 0) + (againBody.usage?.outputTokens ?? 0) };
+      res = again; body = againBody;
+    }
+  }
   if (!res.ok || !body) {
     // No AI: answer what can be answered from the data itself.
     return {
@@ -150,7 +163,7 @@ export async function aiReviewRun(run: import('./runtime').SwarmRun, ds: Dataset
   try {
     const res = await apiFetch('/api/swarm/review', {
       method: 'POST',
-      body: JSON.stringify({ ...reviewInput(run), catalog: catalogForPlanner(), dataset: ds ? { columns: ds.columns.map(c => ({ name: c.name, type: c.type })) } : null }),
+      body: JSON.stringify({ ...reviewInput(run), catalog: catalogLines([...new Set([...run.tasks.map(t => t.capability).filter(id => CAPABILITIES[id]), ...relevantCapabilities(run.request)])]), dataset: ds ? { columns: ds.columns.slice(0, 60).map(c => ({ name: c.name, type: c.type })) } : null }),
     });
     if (!res.ok) return null;
     const body = await res.json().catch(() => null);
