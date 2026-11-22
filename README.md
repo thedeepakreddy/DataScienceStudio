@@ -15,7 +15,7 @@
 - [The seven steps](#the-seven-steps)
 - [Your work is saved, versioned and reproducible](#your-work-is-saved-versioned-and-reproducible)
 - [Beginner and Expert modes](#beginner-and-expert-modes)
-- [AI: Gemini, your own key, and working without AI](#ai-gemini-your-own-key-and-working-without-ai)
+- [AI: ARC first, Gemini as backup, your own keys, and working without AI](#ai-arc-first-gemini-as-backup-your-own-keys-and-working-without-ai)
 - [Architecture](#architecture)
 - [Technology](#technology)
 - [Tests and CI](#tests-and-ci)
@@ -40,7 +40,7 @@
   - Gemini writes words, plans and code. It is never the source of a metric.
 - **Few AI calls:** common requests are planned by built-in rules with **zero** AI calls. Anything else takes one call.
 - **Free to host:** your work lives in your browser (IndexedDB) and the servers are stateless, so it runs on Render's free tier.
-- **Stack:** React 19 + TypeScript + Vite + Tailwind v4 · Node/Express · Python FastAPI · Google Gemini.
+- **Stack:** React 19 + TypeScript + Vite + Tailwind v4 · Node/Express · Python FastAPI · ARC (AI routing), with Google Gemini as the backup.
 
 ---
 
@@ -119,7 +119,7 @@ Each agent has a written skill sheet (what it knows, how it decides, its quality
    - leakage → retrain without the leaky columns; a model that fails the validation gate → a tuned model; a dashboard that didn't render → a redesign;
    - a step that fails again gets **a different method** where one exists (AutoML → the quick model, and its explanation follows; a long forecast → a shorter one), never the same thing again;
    - work held up by a failure **carries on without it** when it doesn't need that step's result (a report, a dashboard, other analyses), and says what it ran without; work that does need it (explaining a model that was never trained) is reported to you instead;
-   - up to three rounds while progress is being made. With a Gemini key, one AI call also checks that the results answer your request. Normal approvals apply.
+   - up to three rounds while progress is being made. With AI available (ARC, or Gemini as the backup), one AI call also checks that the results answer your request. Normal approvals apply.
 7. **A truthful report.** At the end you get a summary in the chat:
    - what was done, and each task's check,
    - reviews, contradictions and incidents,
@@ -234,7 +234,9 @@ The agents work in both.
 
 ---
 
-## AI: Gemini, your own key, and working without AI
+## AI: ARC first, Gemini as backup, your own keys, and working without AI
+
+**ARC is the default AI route; Gemini is the backup.** Every AI request goes to ARC first (the studio's `ARC_API_KEY`, or the visitor's own ARC key), and only falls back to Gemini when ARC can't answer.
 
 - **Through ARC (optional, recommended):** with `ARC_API_KEY` set (and `ARC_BASE_URL` for your own ARC; without it the public ARC at `https://arc-ai.run.place/v1` is used, and a bare address gets `/v1` added), every AI call goes to [ARC](https://github.com/thedeepakreddy/ARC-AI_Runtime_and_connectivity) first (`arcClient.ts`). ARC holds the owner's provider keys — several per provider, across providers — and picks a healthy free model and key for each call, with its own fallback. The studio's requests (JSON schemas, the ML agent's tool calls) are translated to ARC's OpenAI-compatible API and back, so every feature works unchanged. JSON answers are cleaned first: free models often add a sentence, a Markdown fence or their reasoning (`<think>…</think>`) around the JSON, which would otherwise be lost. `ARC_MODEL` picks the model (default `auto`). If ARC can't answer, the studio falls back to `GEMINI_API_KEY`, then a visitor's own key, then its built-in versions; the AI notice says when ARC is the problem and why. Check a deployment with `ARC_BASE_URL=… ARC_API_KEY=… npx tsx scripts/arc-smoke.ts`.
 - **Server key:** the server uses `GEMINI_API_KEY` when it's set (after ARC, when ARC is configured).
@@ -265,8 +267,8 @@ The agents work in both.
                 ▼                                      │
 ┌──────────────────────── Node / Express (stateless) ─┴───────────────────┐
 │  • Serves the app; proxies compute to the ML service (wakes it if idle) │
-│  • AI gateway: /api/swarm/plan and narration endpoints (Gemini,         │
-│    owner key or the visitor's own key)                                  │
+│  • AI gateway: /api/swarm/plan and narration endpoints (ARC first,     │
+│    then Gemini; the studio's keys or the visitor's own)                │
 │  • Background jobs for long requests                                    │
 └───────────────┬─────────────────────────────────────────────────────────┘
                 │
@@ -293,7 +295,7 @@ The agents work in both.
 | In-browser data | AlaSQL (read-only SQL), read-excel-file, hyparquet, mathjs |
 | Storage | IndexedDB |
 | Server | Node.js, Express, esbuild bundle |
-| AI | Google Gemini via `@google/genai` (planning, narration, structured function-calling) |
+| AI | ARC first (OpenAI-compatible routing across providers), Google Gemini via `@google/genai` as the backup (planning, narration, structured function-calling) |
 | Compute service | Python 3.13, FastAPI, scikit-learn, XGBoost, LightGBM, CatBoost, statsmodels, SciPy, SHAP, Optuna, DuckDB, pandas, NumPy; deployed on Google Cloud Run |
 | Reports | jsPDF, html-to-image (charts in the PDF), generated Jupyter notebooks |
 | Testing | Vitest (frontend), pytest (ML service) |
@@ -328,7 +330,7 @@ cd mlops_service && pytest tests && ruff check .
 
 ## Run it locally
 
-**Requirements:** Node.js 18–22+, Python 3.11, and optionally a Gemini API key.
+**Requirements:** Node.js 18–22+, Python 3.11, and optionally an ARC key (`ARC_API_KEY`, the main AI route) and/or a Gemini API key (the backup).
 
 ```bash
 git clone https://github.com/thedeepakreddy/DataScienceStudio-AskDeepakAI.git
@@ -436,7 +438,7 @@ Tailwind CSS v4 is configured in `src/index.css`. There is no `tailwind.config.j
 - **Free hosting:** the ML service sleeps when idle and has little memory, so very large datasets or training many models at once can be slow.
 - **Database and API imports** are copies taken when you import; to refresh them, re-import (Model → Automate can re-import on a schedule for public sources).
 - **Tableau and Power BI imports rebuild the essentials, not a pixel copy:** formatting, maps, parameters, table calculations, level-of-detail expressions and complex DAX aren't carried over, and old `.tde` extracts and live connections can't be read. The conversion report says exactly what came across.
-- **AI features need a Gemini key** (the owner's or your own). Everything else works without one.
+- **AI features need an AI key:** ARC first (the owner's `ARC_API_KEY` or your own ARC key), with a Gemini key as the backup. Everything else works without one.
 
 ---
 
