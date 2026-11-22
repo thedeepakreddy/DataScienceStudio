@@ -52,7 +52,7 @@ export const isArcKey = (key: string | null | undefined): key is string => !!key
  * ARC_USER_URL, else the app's ARC_BASE_URL, else the public ARC.
  */
 export function arcUserUrl(env: Record<string, string | undefined> = process.env): string {
-  return (env.ARC_USER_URL?.trim() || env.ARC_BASE_URL?.trim() || 'https://arc-ai.run.place/v1');
+  return normaliseArcUrl(env.ARC_USER_URL?.trim() || env.ARC_BASE_URL?.trim() || PUBLIC_ARC_URL);
 }
 
 /** What went wrong with a visitor's own ARC key, in words they can act on. */
@@ -72,12 +72,46 @@ export function describeVisitorArcFailure(kind: string): string {
   }
 }
 
-/** ARC is used when both are set (ARC_BASE_URL, ARC_API_KEY). */
+/** The public ARC, used when only a key is set. */
+export const PUBLIC_ARC_URL = 'https://arc-ai.run.place/v1';
+
+const firstSet = (env: Record<string, string | undefined>, names: string[]) => names.map(n => env[n]?.trim()).find(v => !!v);
+
+/** An ARC address with its API path: "https://arc.example" → "https://arc.example/v1". */
+export function normaliseArcUrl(url: string): string {
+  const u = url.trim().replace(/\/+$/, '');
+  try {
+    const parsed = new URL(u);
+    return parsed.pathname === '' || parsed.pathname === '/' ? `${u}/v1` : u;
+  } catch {
+    return u;
+  }
+}
+
+/**
+ * ARC is used when a key is set: ARC_API_KEY (or ARC_KEY), at ARC_BASE_URL (or ARC_URL /
+ * ARC_API_URL; the public ARC when none is set). Returns null without a key.
+ */
 export function arcConfigFromEnv(env: Record<string, string | undefined> = process.env): ArcConfig | null {
-  const baseUrl = env.ARC_BASE_URL?.trim();
-  const apiKey = env.ARC_API_KEY?.trim();
-  if (!baseUrl || !apiKey) return null;
+  const apiKey = firstSet(env, ['ARC_API_KEY', 'ARC_KEY']);
+  if (!apiKey) return null;
+  const baseUrl = normaliseArcUrl(firstSet(env, ['ARC_BASE_URL', 'ARC_URL', 'ARC_API_URL']) ?? PUBLIC_ARC_URL);
   return { baseUrl, apiKey, model: env.ARC_MODEL?.trim() || 'auto' };
+}
+
+/** What the server sees of the ARC settings (never the key), so a missing one is easy to spot. */
+export function arcSetup(env: Record<string, string | undefined> = process.env) {
+  const key = firstSet(env, ['ARC_API_KEY', 'ARC_KEY']);
+  const url = firstSet(env, ['ARC_BASE_URL', 'ARC_URL', 'ARC_API_URL']);
+  let host: string | null = null;
+  try { host = new URL(normaliseArcUrl(url ?? PUBLIC_ARC_URL)).host; } catch { host = null; }
+  return {
+    configured: !!key,
+    keySet: !!key,
+    urlSet: !!url,
+    host,
+    missing: key ? [] : ['ARC_API_KEY'],
+  };
 }
 
 /** Gemini's OpenAPI-style schema (Type.OBJECT = "OBJECT", `nullable`) as JSON Schema. */
