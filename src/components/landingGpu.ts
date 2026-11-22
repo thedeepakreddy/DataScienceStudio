@@ -23,8 +23,9 @@ import type { DataField } from './landingScene';
 //   · panels on screen call streams of particles out of the field to trace
 //     their borders and follow them as the page scrolls.
 // The opening is the intro: everything collapses into one charged point, it
-// detonates, the particles write "Data Science Studio", then burst into the
-// data globe. Bloom makes the energy glow.
+// detonates, the particles write "Data Science Studio" (stacked in three lines
+// on a portrait phone so it fits), hold it, then flow softly into the data
+// globe while the page rises over them. Bloom makes the energy glow.
 //
 // Shapes (targets), in page order: 0 globe · 1 scatter (sloping with the
 // sample's r) · 2 ring of agent clusters · 3 seven bars · 4 wide globe ·
@@ -230,26 +231,48 @@ function rng(seed: number) {
   return () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
 }
 
-/** Points sampled from text drawn in the brand face, centred, `width` world units wide. */
-async function textPoints(text: string, width: number): Promise<Float32Array> {
+/**
+ * Points sampled from text drawn in the brand face, centred, `width` world units wide. Several
+ * lines stack (used on phones, where the name in one line would run off the screen).
+ */
+async function textPoints(lines: string[], width: number): Promise<Float32Array> {
   try { await document.fonts.load('600 160px "Zilla Slab"'); } catch { /* falls back to Georgia */ }
   const c = document.createElement('canvas');
-  const W = 1400, H = 260;
-  c.width = W; c.height = H;
+  const W = 1400;
   const g = c.getContext('2d')!;
+  const fit = (start: number) => {
+    let size = start;
+    g.font = `600 ${size}px "Zilla Slab", Georgia, serif`;
+    while (Math.max(...lines.map(l => g.measureText(l).width)) > W * 0.94 && size > 40) { size -= 6; g.font = `600 ${size}px "Zilla Slab", Georgia, serif`; }
+    return size;
+  };
+  // One line keeps the desktop proportions exactly; stacked lines grow to fill the width.
+  const size = fit(lines.length === 1 ? 190 : 560);
+  const lineH = lines.length === 1 ? 260 : Math.round(size * 1.08);
+  const H = lineH * lines.length + (lines.length === 1 ? 0 : Math.round(size * 0.3));
+  c.width = W; c.height = H;
+  g.font = `600 ${size}px "Zilla Slab", Georgia, serif`;
   g.fillStyle = '#fff';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  let size = 190;
-  g.font = `600 ${size}px "Zilla Slab", Georgia, serif`;
-  while (g.measureText(text).width > W * 0.94 && size > 40) { size -= 6; g.font = `600 ${size}px "Zilla Slab", Georgia, serif`; }
-  g.fillText(text, W / 2, H / 2);
+  lines.forEach((l, i) => g.fillText(l, W / 2, H / 2 + (i - (lines.length - 1) / 2) * lineH));
   const data = g.getImageData(0, 0, W, H).data;
   const pts: number[] = [];
   for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) if (data[(y * W + x) * 4 + 3] > 140) pts.push(x, y);
   const s = width / W, out = new Float32Array((pts.length / 2) * 3);
   for (let i = 0, j = 0; i < pts.length; i += 2, j += 3) { out[j] = (pts[i] - W / 2) * s; out[j + 1] = -(pts[i + 1] - H / 2) * s; out[j + 2] = 0; }
   return out;
+}
+
+/** How the name fits the screen the intro opens on: one line, or stacked on a portrait phone. */
+function nameLayout(): { lines: string[]; width: number } {
+  const a = (window.innerWidth || 1) / (window.innerHeight || 1);
+  // The same framing as resize(): the camera stands further back on portrait screens.
+  const camZ = a < 0.8 ? 10.5 : 7.5;
+  const visibleW = 2 * Math.tan((42 * Math.PI) / 360) * camZ * a;
+  if (7.2 <= visibleW * 0.88) return { lines: ['Data Science Studio'], width: 7.2 };
+  if (a < 0.8) return { lines: ['Data', 'Science', 'Studio'], width: visibleW * 0.8 };
+  return { lines: ['Data Science Studio'], width: visibleW * 0.88 };
 }
 
 /** Whether this browser can run the GPU engine (float render targets). */
@@ -295,7 +318,8 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
   const agents = Math.max(1, opts.agentColors.length);
   const shapeData = Array.from({ length: SHAPES }, () => new Float32Array(N * 4));
   const cluster = new Uint16Array(N);
-  const text = await textPoints('Data Science Studio', 7.2);
+  const name = nameLayout();
+  const text = await textPoints(name.lines, name.width);
   const textCount = text.length / 3;
   const r = opts.r;
   for (let i = 0; i < N; i++) {
@@ -403,14 +427,15 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
   const rectOn = new Array(MAX_RECTS).fill(0);
   let viewW = 1, viewH = 1, worldH = 1;
 
-  // The intro: collapse, charge, detonate, write the name, burst into the globe.
+  // The intro: collapse, charge, detonate, write the name, flow into the globe as the page rises.
   type Intro = { at: number; from: number; to: number; dur: number; spring?: number; turb?: number; shock?: number; heat?: number; done?: boolean };
   const introSteps: Intro[] = opts.intro ? [
     { at: 0.0, from: 6, to: 6, dur: 0.1, spring: 2.5, turb: 0.15, heat: 0.2 },
     { at: 1.7, from: 6, to: 5, dur: 1.1, spring: 13, turb: 2.6, shock: 3.2, heat: 1 },
     // The name locks crisp: no turbulence, tight springs, held about three seconds.
     { at: 2.7, from: 5, to: 5, dur: 0.1, spring: 34, turb: 0, heat: 0.35 },
-    { at: 6.2, from: 5, to: 0, dur: 1.4, spring: 18, turb: 1.4, shock: 2.2, heat: 0.7, done: true },
+    // Then the letters flow softly into the globe (no burst) while the page rises over them.
+    { at: 6.2, from: 5, to: 0, dur: 2.4, spring: 8, turb: 0.45, heat: 0.4, done: true },
   ] : [];
   let chargeHold = 0, introClock = 0, introAt = 0, introStep = -1, introOn = opts.intro, introA = 0, introB = 0, introMix = 1, introMixDur = 1, introSince = 0;
 
@@ -465,7 +490,7 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
         if (s.turb != null) turbBoost = s.turb;
         if (s.heat != null) heat = s.heat;
         if (s.shock) fireShock(0, 0, s.shock);
-        if (s.done) setTimeout(finishIntro, 700 / (opts.introSpeed ?? 1));
+        if (s.done) setTimeout(finishIntro, 120 / (opts.introSpeed ?? 1));
       }
       introMix = Math.min(1, (introAt - introSince) / introMixDur);
       A = introA; B = introB; mix = introMix;
