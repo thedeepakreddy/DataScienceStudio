@@ -18,7 +18,7 @@ const sources = files(src).map(p => [p.slice(src.length + 1), readFileSync(p, 'u
 const ui = sources.filter(([p]) => p !== 'engine/client.ts');
 
 /** Routes the client uses on the studio's behalf (uploading data, following jobs). */
-const INTERNAL = new Set(['run', 'datasets.upload', 'datasets.uploadUrl', 'datasets.get', 'jobs.get']);
+const INTERNAL = new Set(['run', 'datasets.upload', 'datasets.uploadUrl', 'datasets.get', 'jobs.get', 'files.upload']);
 /** For scripts and notebooks only, with the reason the studio doesn't need them. */
 const SCRIPTS_ONLY: Record<string, string> = {
   'datasets.fromRows': 'Sends rows as JSON; the studio uploads the same data as CSV (datasets.upload), which is smaller.',

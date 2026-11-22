@@ -122,7 +122,7 @@ export default function IntelligentDashboardLayer({ dataset, mlResult, datasetId
   // Agents design dashboards too (docs/AGENTS_PLAN.md §6): a design arrives as an
   // event, is applied like any configuration, and the dashboard replies with
   // the charts that actually rendered — that reply is the agent's check.
-  const { setCategoryFilters } = useDashboardContext();
+  const { setCategoryFilters, kpis: currentKpis, setKpis } = useDashboardContext();
   const initialLoadDone = React.useRef(false);
   // When the agents last applied a design; a slower AI suggestion must not overwrite it.
   const agentDesignedAt = React.useRef(0);
@@ -132,7 +132,12 @@ export default function IntelligentDashboardLayer({ dataset, mlResult, datasetId
   const applyAgentDesign = React.useRef((_detail: any) => {});
   // Kept current after each render (it reads the latest filters).
   React.useLayoutEffect(() => { applyAgentDesign.current = (detail: any) => {
-    const { design, filters } = detail ?? {};
+    const { design, filters, kpis } = detail ?? {};
+    // KPIs from an imported workbook join the user's own (same name replaces).
+    if (Array.isArray(kpis) && kpis.length) {
+      const names = new Set(kpis.map((k: any) => k.name));
+      setKpis([...currentKpis.filter(k => !names.has(k.name)), ...kpis]);
+    }
     if (design?.recommendedComponents) {
       const comps = withIds(design.recommendedComponents);
       agentDesignedAt.current = Date.now();

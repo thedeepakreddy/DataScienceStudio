@@ -11,6 +11,9 @@ pyarrow
 pandas
 numpy
 openpyxl
+# Tableau extracts (.hyper) and Power BI files (.pbix)
+tableauhyperapi
+pbixray
 # statistics
 scipy
 statsmodels

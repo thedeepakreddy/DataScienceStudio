@@ -6,9 +6,11 @@ import importlib
 import logging
 import os
 import pkgutil
+import re
 import tempfile
 import threading
 import time
+import uuid
 from typing import Any, Literal
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
@@ -148,6 +150,35 @@ async def upload_dataset(file: UploadFile = File(...), name: str | None = Form(N
             tmp.write(chunk)
         tmp.close()
         return state.datasets.ingest_file(tmp.name, file.filename or f"upload{suffix}", name)
+    finally:
+        tmp.close()
+        if os.path.exists(tmp.name):
+            os.unlink(tmp.name)
+
+
+BI_EXT = {".twbx", ".twb", ".hyper", ".pbix"}
+
+
+@router.post("/files/upload")
+async def upload_file(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Keeps a workbook file (Tableau .twbx/.twb/.hyper, Power BI .pbix) for connect.bi to read."""
+    filename = os.path.basename(file.filename or "")
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in BI_EXT:
+        raise EngineError("Upload a .twbx, .twb, .hyper or .pbix file here; data files go to /datasets/upload.")
+    safe = re.sub(r"[^\w.\- ]+", "_", filename)[:150] or f"workbook{ext}"
+    file_id = "file_" + uuid.uuid4().hex[:20]
+    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+    size = 0
+    try:
+        while chunk := await file.read(1 << 20):
+            size += len(chunk)
+            if size > MAX_UPLOAD_BYTES:
+                raise EngineError(f"The file is larger than the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.", 413, "too_large")
+            tmp.write(chunk)
+        tmp.close()
+        state.storage.put_file(f"files/{file_id}/{safe}", tmp.name)
+        return {"file_id": file_id, "filename": safe, "bytes": size}
     finally:
         tmp.close()
         if os.path.exists(tmp.name):

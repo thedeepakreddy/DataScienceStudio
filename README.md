@@ -11,6 +11,7 @@
 - [At a glance](#at-a-glance)
 - [Why it exists](#why-it-exists)
 - [Your agent team](#your-agent-team)
+- [The front page](#the-front-page)
 - [The seven steps](#the-seven-steps)
 - [Your work is saved, versioned and reproducible](#your-work-is-saved-versioned-and-reproducible)
 - [Beginner and Expert modes](#beginner-and-expert-modes)
@@ -141,12 +142,23 @@ Every number shown is computed from the sample. Then the team flies into the Ask
 
 ---
 
+## The front page
+
+After the loading screen and the agents' welcome, the studio opens on a dark front page. **Try for free** (top right, and throughout the page) opens the studio. Everything on it is real:
+- **Live panels**, as in the agents' welcome: agents move in and do the work on the welcome's 20-row sample. A question is typed and the Orchestrator answers, the engine's run log fills in, the Data Engineer types each median into its blank and the Verifier ticks the results, and the Dashboard Designer drags a chart in and widens it by its curved corner. Every value is computed from those rows. Each panel plays when it scrolls into view and loops while visible.
+- **Motion throughout:** the headline rises in, sections reveal as you scroll, the counts count up, and the API code types itself out. With reduced motion, everything shows its finished state.
+- **Ask AI** shows the studio's own thinking orb, cycling through the states it uses (waiting, planning, running an analysis, training, writing) inside a turning glass sphere.
+- **The engine** lists its analyses by discipline, counted from the engine contract, with sample code (Python, TypeScript, cURL) for the real API.
+- **Where it runs** describes the deployment: your browser, the web server on Render, the engine on Google Cloud Run, Cloud Storage for large files, and AI routing (ARC, then Gemini, or your own keys).
+- **The seven steps**, the agents and links to the source.
+
 ## The seven steps
 
 ### 1. Import
 The page puts the most-used actions first: add a file, try a sample, set a goal, then other sources.
 - **Files:** CSV/TSV (delimiter detected), Excel `.xlsx` (with a sheet picker), JSON / JSON Lines (nested objects flattened) and Parquet, parsed in the browser up to 100 MB. Larger files (several GB) go straight to the engine.
 - **Other sources, through the engine:** a web address; a **JSON API** (bearer token, key in a header or the address, or username and password; page numbers, offsets, *next* links or cursors; nested fields become columns; the key is never stored); PostgreSQL or MySQL (read-only `SELECT`); BigQuery; Google Cloud Storage. Every address is checked against private networks.
+- **Tableau and Power BI:** upload a packaged Tableau workbook (`.twbx`), a Tableau extract (`.hyper`) or a Power BI file (`.pbix`). The engine reads its data tables (Tableau's Hyper API, `pbixray` for Power BI), rebuilds each sheet or visual as a studio chart where there's a match (bar, line, area, scatter, pie, histogram, table, KPI cards), and translates simple calculations and DAX measures (`SUM`, `AVG`, `MIN`, `MAX`, `MEDIAN`, `COUNT`, `COUNT_DISTINCT` and arithmetic) into dashboard KPIs. A conversion report lists every sheet and calculation as rebuilt, a close match, or not rebuilt (with the reason, such as a level-of-detail expression or a map). **Open and build the dashboard** opens the main table and lays out the rebuilt charts and KPIs on the Dashboard step, where the numbers are recomputed from the data. A `.twb` alone has no data, so only its design is read. Workbooks are parsed safely (no XML entities, limits on archive size).
 - **Type detection** (numbers, categories, booleans, dates, ID-like columns) and **sample datasets**.
 
 ### 2. Clean
@@ -245,7 +257,7 @@ The agents work in both.
                 │
                 ▼
 ┌──────────────────────── Python FastAPI (stateless) ─────────────────────┐
-│  Engine v2: /v2/run/{capability} (65 analyses), datasets, jobs, runs,   │
+│  Engine v2: /v2/run/{capability} (66 analyses), datasets, jobs, runs,   │
 │  models (registry, serving, monitoring), pipelines and schedules        │
 │  Classic: /train /predict /eda /forecast /stats/* /monitor/drift        │
 │  scikit-learn · XGBoost · LightGBM · CatBoost · statsmodels · SciPy ·   │
@@ -262,7 +274,7 @@ The agents work in both.
 | Area | Technology |
 |---|---|
 | UI | React 19, TypeScript, Vite 6, Tailwind CSS v4, Motion, Recharts, Lucide |
-| Type | SF Pro / Inter for the studio; Source Serif 4 for the welcome |
+| Type | SF Pro / Inter for the studio; Source Serif 4 for the welcome; Geist and Geist Mono for the front page |
 | In-browser data | AlaSQL (read-only SQL), read-excel-file, hyparquet, mathjs |
 | Storage | IndexedDB |
 | Server | Node.js, Express, esbuild bundle |
@@ -408,6 +420,7 @@ Tailwind CSS v4 is configured in `src/index.css`. There is no `tailwind.config.j
 - **Your work is stored in your browser.** It isn't synced across devices (use workspace export/import), and browser storage quotas apply.
 - **Free hosting:** the ML service sleeps when idle and has little memory, so very large datasets or training many models at once can be slow.
 - **Database and API imports** are copies taken when you import; to refresh them, re-import (Model → Automate can re-import on a schedule for public sources).
+- **Tableau and Power BI imports rebuild the essentials, not a pixel copy:** formatting, maps, parameters, table calculations, level-of-detail expressions and complex DAX aren't carried over, and old `.tde` extracts and live connections can't be read. The conversion report says exactly what came across.
 - **AI features need a Gemini key** (the owner's or your own). Everything else works without one.
 
 ---
