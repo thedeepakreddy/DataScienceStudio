@@ -39,6 +39,8 @@ export interface GpuField extends DataField {
   setRects(get: (() => DOMRect[]) | null): void;
   /** Ends the intro at once. */
   skipIntro(): void;
+  /** How bright the field is (1 full, lower behind text). */
+  setDim(v: number): void;
 }
 
 const SHAPES = 7;
@@ -171,6 +173,11 @@ void main(){
     }
   }
   vel += force * uDt;
+  // Safety: no runaway speeds, and a particle that has gone astray (or turned
+  // NaN on half-float GPUs) stops so its spring can bring it home.
+  float sp = length(vel);
+  if (sp > 30.0) vel *= 30.0 / sp;
+  if (!(sp == sp) || length(pos) > 40.0) vel = (target - pos) * 0.5;
   gl_FragColor = vec4(vel, 1.0);
 }`;
 
@@ -180,12 +187,15 @@ void main(){
   vec2 uv = gl_FragCoord.xy / resolution.xy;
   vec4 P = texture2D(texturePosition, uv);
   vec4 V = texture2D(textureVelocity, uv);
-  gl_FragColor = vec4(P.xyz + V.xyz * uDt, P.w);
+  vec3 p = P.xyz + V.xyz * uDt;
+  // A particle that has gone astray comes back to the middle rather than haunting the camera.
+  if (!(p.x == p.x) || length(p) > 40.0) p = vec3(0.0);
+  gl_FragColor = vec4(p, P.w);
 }`;
 
 const RENDER_VERT = /* glsl */ `
 uniform sampler2D tPos, tVel;
-uniform float uSize, uPR, uRingMix, uHeat;
+uniform float uSize, uPR, uRingMix, uHeat, uGain, uDim;
 attribute vec2 aRef;
 attribute vec3 aBase, aRing;
 varying vec3 vColor;
@@ -195,10 +205,13 @@ void main(){
   float speed = length(texture2D(tVel, aRef).xyz);
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
   gl_Position = projectionMatrix * mv;
-  float hot = clamp(speed * 0.09 + uHeat, 0.0, 1.0);
-  vColor = mix(mix(aBase, aRing, uRingMix), vec3(1.0, 0.96, 0.9), hot * 0.85);
-  vAlpha = 0.5 + hot * 0.5;
-  gl_PointSize = min(uSize * uPR * (7.5 / -mv.z) * (1.0 + hot * 1.4), 13.0 * uPR);
+  // Speed and explosions heat a particle a little; brightness is shared out by
+  // the particle count (uGain) so tens of thousands of overlapping points never
+  // add up to a white-out, and the field dims behind the page's text (uDim).
+  float hot = clamp(speed * 0.03 + uHeat * 0.6, 0.0, 1.0);
+  vColor = mix(mix(aBase, aRing, uRingMix), vec3(1.0, 0.96, 0.9), hot * 0.5);
+  vAlpha = (0.42 + hot * 0.28) * uGain * uDim;
+  gl_PointSize = min(uSize * uPR * (7.5 / -mv.z) * (1.0 + hot * 0.5), 9.0 * uPR);
 }`;
 
 const RENDER_FRAG = /* glsl */ `
@@ -256,7 +269,9 @@ export function gpuTier(): 'software' | 'low' | 'high' {
     const name = info && gl ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
     if (/swiftshader|llvmpipe|software|basic render/i.test(name)) return 'software';
   } catch { /* unknown: assume a real GPU */ }
-  return window.innerWidth < 768 ? 'low' : 'high';
+  // Touch devices (phones and tablets) get the lighter version: fewer particles, no bloom.
+  const coarse = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  return window.innerWidth < 768 || coarse ? 'low' : 'high';
 }
 
 export async function createGpuField(canvas: HTMLCanvasElement, opts: {
@@ -360,7 +375,7 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
   geo.setAttribute('aRing', new THREE.BufferAttribute(ring, 3));
   const mat = new THREE.ShaderMaterial({
     vertexShader: RENDER_VERT, fragmentShader: RENDER_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { tPos: { value: null }, tVel: { value: null }, uSize: { value: N > 30000 ? 2.4 : 3.2 }, uPR: { value: PR }, uRingMix: { value: 0 }, uHeat: { value: 0 } },
+    uniforms: { tPos: { value: null }, tVel: { value: null }, uSize: { value: N > 30000 ? 2.0 : 3.0 }, uPR: { value: PR }, uRingMix: { value: 0 }, uHeat: { value: 0 }, uGain: { value: Math.min(1, Math.sqrt(11000 / N)) }, uDim: { value: 1 } },
   });
   const points = new THREE.Points(geo, mat);
   points.frustumCulled = false;
@@ -371,13 +386,15 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
   if (opts.bloom) {
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.85, 0.55, 0.12);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.95;
+    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.4, 0.5, 0.42);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
   }
 
   // ---- State. ----
-  let progress = 0, shown = 0, scrollV = 0, turbBoost = 0, heat = 0, shake = 0, yaw = 0, tiltX = 0, tiltY = 0;
+  let dimTarget = 1, dimNow = 1, progress = 0, shown = 0, scrollV = 0, turbBoost = 0, heat = 0, shake = 0, yaw = 0, tiltX = 0, tiltY = 0;
   let px: number | null = null, py: number | null = null;
   const pointer = new THREE.Vector3(99, 99, 0), lastPointer = new THREE.Vector3(99, 99, 0);
   let holdOn = false, holdLevel = 0, holdStart = 0;
@@ -521,7 +538,9 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
     for (let k = 0; k < steps; k++) { t += dt; vu.uTime.value = t; gpu.compute(); }
     mat.uniforms.tPos.value = gpu.getCurrentRenderTarget(posVar).texture;
     mat.uniforms.tVel.value = gpu.getCurrentRenderTarget(velVar).texture;
-    if (bloom) bloom.strength = 0.8 + heat * 1.1 + holdLevel * 0.6 + Math.min(0.8, Math.abs(scrollV) / 2500);
+    if (bloom) bloom.strength = Math.min(1.0, 0.48 + heat * 0.45 + holdLevel * 0.35 + Math.min(0.2, Math.abs(scrollV) / 8000));
+    dimNow += (dimTarget - dimNow) * Math.min(1, real * 3);
+    mat.uniforms.uDim.value = dimNow;
     if (composer) composer.render(); else renderer.render(scene, camera);
     raf = requestAnimationFrame(step);
   };
@@ -529,6 +548,7 @@ export async function createGpuField(canvas: HTMLCanvasElement, opts: {
 
   return {
     setProgress(p) { progress = Math.max(0, Math.min(4, p)); },
+    setDim(v) { dimTarget = Math.max(0.2, Math.min(1, v)); },
     setVelocity(v) { scrollV = Math.max(-7000, Math.min(7000, v)); },
     setPointer(x, y) { px = x; py = y; },
     shock(x, y, strength = 1.5) { fireShock(toWorld(x, y).x, toWorld(x, y).y, strength); },

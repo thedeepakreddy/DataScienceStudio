@@ -66,6 +66,16 @@ export function CountUp({ to, duration = 1400 }: { to: number; duration?: number
   return <span ref={ref} className="tabular-nums">{v}</span>;
 }
 
+/** An agent's name tag: a pill in the agent's colour, like a collaborator's cursor. */
+export function AgentTag({ role, label, small = false }: { role: AgentRole; label?: string; small?: boolean }) {
+  return (
+    <span className={`lp-tag${small ? ' small' : ''}`} style={{ '--c': AGENTS[role].color } as React.CSSProperties}>
+      <span className="lp-tag-name">{AGENTS[role].name}</span>
+      {label && <span className="lp-tag-say" data-say-text>{label}</span>}
+    </span>
+  );
+}
+
 /** Agent cursors that live inside one panel. */
 function useStage(roles: AgentRole[], root: React.RefObject<HTMLDivElement | null>) {
   const els = useRef<(HTMLDivElement | null)[]>([]);
@@ -91,9 +101,7 @@ function useStage(roles: AgentRole[], root: React.RefObject<HTMLDivElement | nul
   const cursors = still() ? null : roles.map((role, i) => (
     <div key={role} ref={el => { els.current[i] = el; }} className="absolute left-0 top-0 z-20 pointer-events-none will-change-transform" aria-hidden="true" style={{ transform: 'translate3d(-80px,-80px,0)' }}>
       <CursorGlyph color={AGENTS[role].color} variant="solid" size={19} />
-      <span className="agent-tag small" style={{ left: 13, top: 15, maxWidth: 230 }}>
-        <span className="font-semibold">{AGENTS[role].name}</span>{labels[i] && <span className="opacity-80"> · {labels[i]}</span>}
-      </span>
+      <AgentTag role={role} label={labels[i]} small />
     </div>
   ));
   return { cursors, ...api };
@@ -383,5 +391,176 @@ export function CleanPanel({ demo, onExplore }: { demo: Demo; onExplore: () => v
       </div>
       {stage.cursors}
     </Shell>
+  );
+}
+
+/**
+ * The agents' live board (formerly the welcome): five specialists work on the
+ * 20-row sample, in order, and the Orchestrator watches. The Data Engineer
+ * types each median into its blank; the Statistician drags across two columns
+ * and the correlation appears; the ML Engineer presses Train and the one-rule
+ * model is scored on the 6 rows it never saw; the Dashboard Designer drags a
+ * chart into the dashboard and widens it by its curved corner; the Verifier
+ * recomputes and ticks each result. Every number is computed from the rows.
+ */
+const BOARD_CAST: AgentRole[] = ['data_engineer', 'statistician', 'ml_engineer', 'dashboard_designer', 'verifier', 'orchestrator'];
+export function BoardPanel({ demo }: { demo: Demo }) {
+  const [ref, visible] = useInView<HTMLDivElement>(0.3);
+  const stage = useStage(useMemo(() => BOARD_CAST, []), ref);
+  const ROWS = 8;
+  const blank = useMemo(() => {
+    const c: Record<string, string> = {};
+    demo.raw.slice(0, ROWS).forEach((x, i) => { c[`${i}:tenure`] = x.tenure == null ? '' : String(x.tenure); c[`${i}:charges`] = x.charges == null ? '' : String(x.charges); });
+    return c;
+  }, [demo]);
+  const done = useMemo(() => { const c = { ...blank }; demo.fills.forEach(f => { c[`${f.row}:${f.col}`] = String(f.value); }); return c; }, [blank, demo]);
+  type B = { cells: Record<string, string>; flash: string[]; sel: string[]; r: string | null; train: number | null; model: string | null; chartIn: boolean; wide: number; drag: Point | null; checks: number };
+  const finished: B = { cells: done, flash: [], sel: [], r: demo.r.toFixed(2), train: null, model: pct(demo.model.accuracy), chartIn: true, wide: 1, drag: null, checks: 3 };
+  const empty: B = { cells: blank, flash: [], sel: [], r: null, train: null, model: null, chartIn: false, wide: 0, drag: null, checks: 0 };
+  const [b, setB] = useState<B>(still() ? finished : empty);
+  const patch = (p: Partial<B> | ((x: B) => Partial<B>)) => setB(x => ({ ...x, ...(typeof p === 'function' ? p(x) : p) }));
+  const maxRate = Math.max(...demo.byPlan.map(g => g.rate), 0.01);
+  const color = (r: AgentRole) => AGENTS[r].color;
+
+  useLoop(visible, async w => {
+    setB(empty);
+    stage.begin();
+    await w(600);
+    // 1. Data Engineer: each blank gets its column's median, typed in.
+    for (const f of demo.fills) {
+      const key = `${f.row}:${f.col}`;
+      stage.say(0, `Filling a blank ${f.col} with the median`);
+      await stage.go(0, stage.at(`[data-b="cell-${key}"]`, 0.3, 0.6)); await stage.press(0);
+      const text = String(f.value);
+      for (let k = 1; k <= text.length; k++) { patch(x => ({ cells: { ...x.cells, [key]: text.slice(0, k) } })); await w(120); }
+      patch(x => ({ flash: [...x.flash, key] }));
+      await w(280);
+    }
+    stage.say(0, 'No blanks left'); await w(400); void stage.leave(0);
+    // 2. Statistician: drag across tenure and charges; the correlation of all 20 rows appears.
+    stage.say(1, 'Selecting tenure and charges');
+    await stage.go(1, stage.at('[data-b="head-tenure"]')); await stage.press(1);
+    patch({ sel: ['tenure'] });
+    await stage.go(1, stage.at('[data-b="head-charges"]'), { duration: 420, arc: 0.05, overshoot: false });
+    patch({ sel: ['tenure', 'charges'] }); await w(240);
+    patch({ r: demo.r.toFixed(2) }); stage.say(1, `Correlation r = ${demo.r.toFixed(2)}`);
+    await stage.go(1, stage.at('[data-b="r"]', 0.2)); await w(500);
+    patch({ sel: [] }); void stage.leave(1);
+    // 3. ML Engineer: train on 14 rows, score on the other 6.
+    stage.say(2, 'Training on 14 rows');
+    await stage.go(2, stage.at('[data-b="train"]')); await stage.press(2);
+    for (let k = 0; k <= 10; k++) { patch({ train: k / 10 }); await w(110); }
+    patch({ train: null, model: pct(demo.model.accuracy) });
+    stage.say(2, `${pct(demo.model.accuracy)} right on 6 rows it never saw`); await w(900); void stage.leave(2);
+    // 4. Dashboard Designer: drag the chart in, then widen it by its curved corner.
+    stage.say(3, 'Adding a chart to the dashboard');
+    const tray = stage.at('[data-b="tray"]');
+    await stage.go(3, tray); await stage.press(3);
+    const slot = stage.at('[data-b="slot"]', 0.72, 0.5);
+    for (let k = 1; k <= 14; k++) { const pt = { x: tray.x + ((slot.x - tray.x) * k) / 14, y: tray.y + ((slot.y - tray.y) * k) / 14 }; patch({ drag: pt }); stage.jump(3, pt); await w(26); }
+    patch({ drag: null, chartIn: true }); await w(300);
+    stage.say(3, 'Making it wider');
+    const corner = stage.at('[data-b="corner"]', 0.4, 0.6);
+    await stage.go(3, corner); await stage.press(3);
+    const left = stage.at('[data-b="slot"]', 0, 0.5), right = stage.at('[data-b="slot"]', 1, 0.5);
+    for (let k = 1; k <= 12; k++) { patch({ wide: k / 12 }); stage.jump(3, { x: corner.x - (k / 12) * (right.x - left.x) * 0.38, y: corner.y + k * 1.5 }); await w(30); }
+    await w(300); void stage.leave(3);
+    // 5. Verifier: recompute and tick each result; the Orchestrator signs off.
+    for (let k = 0; k < 3; k++) {
+      stage.say(4, ['Checking the blanks', 'Recomputing r', 'Rescoring the model'][k]);
+      await stage.go(4, stage.at(`[data-b="check-${k}"]`, 0.05)); await stage.press(4);
+      patch({ checks: k + 1 }); await w(300);
+    }
+    stage.say(4, 'All checked'); await w(500); void stage.leave(4);
+    stage.say(5, 'Done: every number recomputed');
+    await stage.go(5, stage.at('[data-b="checks"]', 0.6, 0.5)); await w(1400);
+    await stage.leave(5);
+    await w(2200);
+  }, () => stage.end());
+
+  return (
+    <div ref={ref} data-stream className="relative overflow-hidden rounded-[24px] lp-glass lp-panel p-4 sm:p-5 space-y-4" style={{ background: 'rgba(20,20,20,0.86)' }}>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[14px] font-semibold" style={{ color: C.text, fontFamily: MONO }}>customers.csv <span className="font-normal" style={{ color: C.dim }}>· 20 rows</span></p>
+        <p className="text-[11px]" style={{ color: C.dim }}>Live · every number is computed</p>
+      </div>
+      <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${C.line}` }}>
+        <table className="w-full text-[12.5px] tabular-nums" style={{ fontFamily: MONO }}>
+          <thead style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <tr>{(['id', 'plan', 'tenure', 'charges', 'churned'] as const).map(c => (
+              <th key={c} data-b={`head-${c}`} className="px-2.5 py-1.5 text-left font-normal transition-colors" style={{ color: b.sel.includes(c) ? C.text : C.dim, background: b.sel.includes(c) ? `color-mix(in srgb, ${color('statistician')} 35%, transparent)` : undefined }}>{c}</th>
+            ))}</tr>
+          </thead>
+          <tbody>
+            {demo.raw.slice(0, ROWS).map((x, i) => (
+              <tr key={x.id} style={{ borderTop: `1px solid ${C.line}` }}>
+                <td className="px-2.5 py-1" style={{ color: C.dim }}>{x.id}</td>
+                <td className="px-2.5 py-1" style={{ color: '#cfcfcf' }}>{x.plan}</td>
+                {(['tenure', 'charges'] as const).map(c => {
+                  const key = `${i}:${c}`, v = b.cells[key], on = b.flash.includes(key);
+                  return (
+                    <td key={c} data-b={`cell-${key}`} className="px-2.5 py-1 transition-colors duration-500"
+                      style={{ background: b.sel.includes(c) ? `color-mix(in srgb, ${color('statistician')} 16%, transparent)` : on ? 'rgba(46,160,67,0.16)' : undefined }}>
+                      {v === '' ? <span className="inline-block px-1.5 rounded text-[10.5px]" style={{ background: 'rgba(255,166,87,0.14)', color: '#ffa657' }}>blank</span>
+                        : <span style={{ color: on ? C.green : '#cfcfcf', fontWeight: on ? 600 : 400 }}>{v}</span>}
+                    </td>
+                  );
+                })}
+                <td className="px-2.5 py-1" style={{ color: x.churned === 'Yes' ? '#ffa657' : C.mute }}>{x.churned}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div data-b="r" className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <p className="text-[11px] uppercase tracking-wide" style={{ color: C.dim }}>Tenure × charges</p>
+          <p className="text-[17px] font-numeral" style={{ color: C.text }}>{b.r ? `r = ${b.r}` : '—'}</p>
+        </div>
+        <div className="rounded-xl px-3 py-2.5 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <span data-b="train" className="px-3 py-1.5 rounded-full text-[13px] font-medium bg-white text-black">Train</span>
+          <div className="min-w-0 flex-1">
+            {b.train != null ? (
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#2a2a2a' }}><div className="h-full rounded-full" style={{ width: pct(b.train), background: color('ml_engineer'), transition: 'width 110ms linear' }} /></div>
+            ) : b.model ? (
+              <p className="text-[12.5px] leading-snug" style={{ color: C.text }}><b className="font-numeral">{b.model}</b> right on {demo.model.testRows} new rows <span style={{ color: C.dim }}>· {demo.model.rule}</span></p>
+            ) : <p className="text-[12.5px]" style={{ color: C.dim }}>A model of churn</p>}
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-[1fr_auto] gap-3 items-stretch">
+        <div data-b="slot" className="rounded-xl min-h-[96px] p-2 flex justify-end" style={{ border: '1px dashed rgba(255,255,255,0.16)' }}>
+          {b.chartIn ? (
+            <div className="relative rounded-lg p-2.5 transition-[width] duration-150" style={{ width: `${56 + b.wide * 44}%`, background: '#1c1c1c', border: `1px solid ${C.line}` }}>
+              <p className="text-[11.5px] font-semibold mb-1.5" style={{ color: C.text }}>Churn rate by plan</p>
+              {demo.byPlan.map(g => (
+                <div key={g.plan} className="flex items-center gap-2 text-[11px] mb-1" style={{ color: C.mute }}>
+                  <span className="w-12 shrink-0">{g.plan}</span>
+                  <span className="h-2.5 rounded-sm" style={{ width: `${(g.rate / maxRate) * 70}%`, background: color('dashboard_designer') }} />
+                  <span className="tabular-nums" style={{ color: C.text }}>{pct(g.rate)}</span>
+                </div>
+              ))}
+              <span data-b="corner" className="absolute left-0 bottom-0 w-5 h-5" aria-hidden="true">
+                <svg viewBox="0 0 20 20" className="w-full h-full"><path d="M3 3 C3 11 7 17 16 17" fill="none" stroke="#6b6b6b" strokeWidth="3" strokeLinecap="round" /></svg>
+              </span>
+            </div>
+          ) : <p className="m-auto text-[11px]" style={{ color: C.dim }}>Dashboard</p>}
+        </div>
+        <div data-b="tray" className="w-24 rounded-xl flex flex-col items-center justify-center gap-1 p-2 transition-opacity" style={{ background: 'rgba(255,255,255,0.04)', opacity: b.chartIn ? 0.35 : 1 }}>
+          <span className="flex items-end gap-0.5 h-6">{[0.5, 0.9, 0.35].map((v, k) => <span key={k} className="w-2 rounded-sm" style={{ height: `${v * 100}%`, background: color('dashboard_designer') }} />)}</span>
+          <span className="text-[10px]" style={{ color: C.dim }}>Chart</span>
+        </div>
+      </div>
+      <ul data-b="checks" className="space-y-1.5">
+        {[`Blanks filled with medians (${demo.fills.map(f => f.value).join(', ')}): none left`, `Correlation recomputed from all 20 rows: ${demo.r.toFixed(2)}`, `Model rescored on the 6 held-out rows: ${pct(demo.model.accuracy)}`].map((t, k) => (
+          <li key={k} data-b={`check-${k}`} className="flex items-center gap-2 text-[12.5px] transition-colors" style={{ color: b.checks > k ? C.text : C.dim }}>
+            <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-colors" style={{ background: b.checks > k ? color('verifier') : '#262626', color: '#fff' }}>{b.checks > k && <Check className="w-3 h-3" strokeWidth={3} />}</span>
+            {t}
+          </li>
+        ))}
+      </ul>
+      {b.drag && <div className="absolute z-10 pointer-events-none rounded-lg px-3 py-2 text-[11px] font-semibold shadow-xl" style={{ left: b.drag.x - 30, top: b.drag.y - 16, background: '#1c1c1c', color: C.text, border: `1px solid ${C.line}`, transform: 'rotate(-2deg)' }}>Churn rate by plan</div>}
+      {stage.cursors}
+    </div>
   );
 }
