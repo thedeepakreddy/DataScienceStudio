@@ -15,6 +15,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { GoogleGenAI, Type, FunctionCallingConfigMode } from '@google/genai';
 import { FALLBACK_GEMINI_MODELS, findFreeModels, rankGeminiModels, withFallback, type ListedModel, type ProbeOutcome } from './geminiModels';
+import { compactJson } from './promptUtils';
 import { arcConfigFromEnv, arcGenerateContent, arcSetup, arcUserUrl, describeArcFailure, describeVisitorArcFailure, isArcKey } from './arcClient';
 
 const app = express();
@@ -873,7 +874,7 @@ app.post('/api/analyze-dataset', async (req, res) => {
     const prompt = `You are a top-tier Data Science and Automation Agent. Analyze this uploaded dataset metadata:
 Dataset Filename: "${safeFilename}"
 Total Rows: ${safeRowCount}
-Columns Configuration: ${JSON.stringify(safeColumns)}
+Columns Configuration: ${compactJson(safeColumns, 5000)}
 
 Generate a complete, high-intelligence structural analysis and automated layout report matching this exactly:
 1. "overviewSummary": Exhaustive, professional 2-sentence summary of the dataset's nature and potential business value.
@@ -943,7 +944,7 @@ app.post('/api/pipeline-intelligence', async (req, res) => {
   try {
     const prompt = `You are a Principal Data Scientist and Business Strategist.
 Given the following dataset profile:
-${JSON.stringify(datasetProfile, null, 2)}
+${compactJson(datasetProfile, 5000)}
 
 And the following stated business problem from the user (if any):
 "${businessProblem || ''}"
@@ -1119,7 +1120,7 @@ function rememberNarrativeInputs(key: string, v: { trainResult: any; champion: a
 /** An AI-written business summary of an already-trained model (its numbers are never changed). */
 async function aiModelNarrative({ trainResult, champion, safeTarget, safeFeatures }: { trainResult: any; champion: any; safeTarget: string; safeFeatures: string[] }) {
   const client = getGeminiClient();
-    const realMetricsJson = JSON.stringify({
+    const realMetricsJson = compactJson({
     task: trainResult.task,
     algorithm: champion.modelName,
     metrics: champion.metrics,
@@ -1129,7 +1130,7 @@ async function aiModelNarrative({ trainResult, champion, safeTarget, safeFeature
     comparisonAcrossModels: trainResult.comparison,
     trainRows: champion.trainRows,
     testRows: champion.testRows
-  });
+  }, 3000);
 
   const systemInstruction = `You are a Business Translator summarizing the results of a machine learning model that has ALREADY been trained and evaluated by a real scikit-learn/XGBoost pipeline on held-out test data. You will be given REAL_METRICS — the exact, final, computed results.
 
@@ -1143,7 +1144,7 @@ REAL_METRICS:
 ${realMetricsJson}
 
 Target Variable: "${safeTarget}"
-Feature Variables: ${JSON.stringify(safeFeatures)}`;
+Feature Variables: ${compactJson(safeFeatures, 1500)}`;
 
   const aiResponse = await generateContentWithRetry(client, {
     contents: 'Explain these real, already-computed model results in clear business language for a non-technical stakeholder. Reference numbers only from REAL_METRICS.',
@@ -1244,7 +1245,7 @@ app.post('/api/eda', async (req, res) => {
 /** An AI-written summary of an already-computed EDA (the numbers are never changed). */
 async function aiEdaNarrative(edaResult: any) {
   const client = getGeminiClient();
-    const realEdaJson = JSON.stringify({
+    const realEdaJson = compactJson({
     rowCount: edaResult.rowCount,
     columnCount: edaResult.columnCount,
     numericSummaries: edaResult.numericSummaries,
@@ -1255,7 +1256,7 @@ async function aiEdaNarrative(edaResult: any) {
     correlation: edaResult.correlation,
     missingReport: edaResult.missingReport,
     categoricalSummaries: edaResult.categoricalSummaries
-  });
+  }, 6000);
 
   const systemInstruction = `You are a Data Quality Analyst summarizing a REAL exploratory data analysis that has ALREADY been computed by pandas/numpy. You will be given REAL_EDA — every mean, median, std, skew, correlation, and outlier count in it was genuinely measured from the dataset.
 
@@ -1399,7 +1400,7 @@ app.post('/api/deep-quality-audit', async (req, res) => {
 
   try {
     const prompt = `You are a Data Quality Engineer. Given this data quality audit summary:
-${JSON.stringify(auditSummary)}
+${compactJson(auditSummary, 4000)}
 
 For each issue found (nulls, duplicates, type mismatches, etc.), generate a specific Python code snippet using pandas to fix the issue.
 Return strict JSON:
@@ -1457,8 +1458,8 @@ app.post('/api/hypothesis-lab/generate', async (req, res) => {
 
   try {
     const prompt = `You are a Principal Data Scientist. Given these columns and sample data:
-Columns: ${JSON.stringify(columns)}
-Sample: ${JSON.stringify(dataSample)}
+Columns: ${compactJson(columns, 3000)}
+Sample: ${compactJson(dataSample, 1200)}
 
 Generate 6 to 8 specific, testable business hypotheses.
 Return strict JSON:
@@ -1514,8 +1515,8 @@ app.post('/api/hypothesis-lab/interpret', async (req, res) => {
 
   try {
     const prompt = `You are a Data Science Translator. Given this hypothesis and statistical test result:
-Hypothesis: ${JSON.stringify(hypothesis)}
-Result: ${JSON.stringify(result)}
+Hypothesis: ${compactJson(hypothesis, 800)}
+Result: ${compactJson(result, 2500)}
 
 Generate a plain-English business interpretation of these results. What does it mean for the business?
 Return strict JSON: { "interpretation": "Your interpretation here..." }`;
@@ -1563,32 +1564,29 @@ app.post('/api/swarm/plan', async (req, res) => {
     return res.status(503).json({ error: 'AI planning is unavailable (no Gemini key). Try a simpler request the built-in planner understands.', reason: 'ai_unavailable' });
   }
   const columns = Array.isArray(dataset?.columns) ? dataset.columns.slice(0, 200) : [];
-  const systemInstruction = `You are the Orchestrator of a data science agent team inside "Data Science Studio". Turn the user's request into a small task plan.
-Rules:
-- Use ONLY these capabilities (id, studio, usual specialist, params):
-${catalog}
-- Specialist roles and what each knows (follow their playbooks):
-${typeof skills === 'string' ? skills.slice(0, 12000) : 'data_engineer, data_scientist, statistician, ml_engineer, bi_analyst, research_analyst, data_quality, verifier'}
-- Give each task to the role that usually owns its capability (shown in the list above).
-- Use exact column names from the dataset. Never invent columns or results.
-- dependsOn lists task ids that must finish first. Data changes run in order; analyses that need clean data depend on the cleaning tasks.
-- Keep the plan as small as the request needs (at most 30 tasks). Order: clean before analysing; analyses before dashboards and reports. For dashboards use dashboard.design with focus set to the user's words.
-- If the user asks a question (about the data, statistics, the studio or a previous result) rather than asking for work, return NO tasks and answer it in reply, using only the facts given here. Say so when the facts don't answer it; never invent numbers or results.
-- If the request is outside data science work in this studio, return no tasks and say so briefly in reply.
-- params must be a JSON object string matching the capability's params.
-- When there are tasks, reply is one or two plain sentences describing what the team will do (not claiming it is done).`;
+  // Kept short: small models plan best from a short, focused prompt. The browser sends only the
+  // capabilities this request points to and the columns in a compact form.
+  const systemInstruction = `You plan data-science work in a studio. Return JSON {reply, tasks}.
+Capabilities you may use (id [role] params):
+${catalog.slice(0, 16000)}
+Roles:
+${typeof skills === 'string' ? skills.slice(0, 3000) : ''}
+Rules: use only these ids and exact column names; give each task its listed role; params is a JSON object string matching the params shown; dependsOn lists earlier task ids (clean before analysing, analyses before dashboards and reports); as few tasks as the request needs. If the user asks a question instead of asking for work, return no tasks and answer in reply from the facts given only (say if they don't answer it; never invent numbers). Outside data work: no tasks, say so. With tasks, reply is one sentence on what the team will do.`;
+  const safeHistory = (Array.isArray(history) ? history : []).slice(-4)
+    .map((h: any) => `${h?.role === 'assistant' ? 'A' : 'U'}: ${String(h?.content ?? '').slice(0, 300)}`).join('\n');
+  // Older browsers send the full column list and sample rows; newer ones a compact line.
   const fmt = (v: unknown) => (typeof v === 'number' ? Number(v.toPrecision(4)) : v);
-  const safeHistory = (Array.isArray(history) ? history : []).slice(-8)
-    .map((h: any) => `${h?.role === 'assistant' ? 'Assistant' : 'User'}: ${String(h?.content ?? '').slice(0, 600)}`).join('\n');
-  const sample = Array.isArray(dataset?.sample) ? JSON.stringify(dataset.sample.slice(0, 3)).slice(0, 1500) : '';
-  const prompt = `Dataset: ${String(dataset?.filename ?? 'unknown')} with ${Number(dataset?.rows ?? 0)} rows.
-Columns: ${columns.map((c: any) => `${c.name} (${c.type}${c.missing ? `, ${c.missing} missing` : ''}${c.distinct != null ? `, ${c.distinct} distinct` : ''}${c.mean != null ? `, mean ${fmt(c.mean)}` : ''}${c.min != null ? `, min ${fmt(c.min)}` : ''}${c.max != null ? `, max ${fmt(c.max)}` : ''}${Array.isArray(c.top) && c.top.length ? `, most common ${c.top.slice(0, 3).join('/')}` : ''})`).join(', ')}
-${sample ? `Sample rows: ${sample}\n` : ''}${safeHistory ? `Conversation so far:\n${safeHistory}\n` : ''}Request: ${request.slice(0, 2000)}`;
+  const columnsLine = typeof dataset?.compact === 'string' ? dataset.compact.slice(0, 6000)
+    : columns.slice(0, 60).map((c: any) => `${c.name} (${c.type}${c.missing ? `, ${c.missing} missing` : ''}${c.min != null ? `, ${fmt(c.min)}–${fmt(c.max)}` : ''})`).join('; ');
+  const prompt = `Data: ${String(dataset?.filename ?? 'unknown')}, ${Number(dataset?.rows ?? 0)} rows.
+Columns: ${columnsLine}
+${safeHistory ? `Recent chat:\n${safeHistory}\n` : ''}Request: ${request.slice(0, 1500)}`;
   try {
     const aiResponse: any = await generateContentWithRetry(getGeminiClient(), {
       contents: prompt,
       config: {
         systemInstruction,
+        maxOutputTokens: 1500,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -1652,7 +1650,7 @@ ${catalog}
   const prompt = `Dataset columns: ${columns.map((c: any) => `${c.name} (${c.type})`).join(', ')}
 Request: ${request.slice(0, 2000)}
 Tasks and results:
-${JSON.stringify(tasks).slice(0, 14000)}`;
+${compactJson(tasks, 5000)}`;
   try {
     const aiResponse: any = await generateContentWithRetry(getGeminiClient(), {
       contents: prompt,
@@ -1835,8 +1833,8 @@ app.post('/api/agent/run', async (req, res) => {
     parts: [{
       text: `Current champion model: ${modelKey} on target "${target}".
 Real ${primaryMetric}: ${primaryMetricValue}.
-Real feature list: ${JSON.stringify(currentFeatures)}
-Real EDA summary (numeric column stats, outliers, missing values): ${JSON.stringify(compactEda)}
+Real feature list: ${compactJson(currentFeatures, 1500)}
+Real EDA summary (numeric column stats, outliers, missing values): ${compactJson(compactEda, 3000)}
 
 Propose the next diagnostic or fix.`,
     }],
@@ -1966,7 +1964,7 @@ app.post('/api/ab-test-interpreter', async (req, res) => {
 
   try {
     const prompt = `You are a Product Analyst. Given these A/B test results:
-${JSON.stringify(results)}
+${compactJson(results, 3000)}
 
 Generate a business recommendation memo: should we ship this feature or not, and why?
 Return strict JSON: { "memo": "Memo content..." }`;
@@ -2000,9 +1998,9 @@ app.post('/api/model-explainer', async (req, res) => {
 
   try {
     const prompt = `You are an AI Explainer. Given the following model feature importance, metrics, and context:
-Feature Importance: ${JSON.stringify(featureImportance)}
-Metrics: ${JSON.stringify(metrics)}
-Context: ${JSON.stringify(context)}
+Feature Importance: ${compactJson(featureImportance, 1500)}
+Metrics: ${compactJson(metrics, 800)}
+Context: ${compactJson(context, 800)}
 
 Generate a plain-English narrative:
 - Why the top 3 features matter most
@@ -2062,7 +2060,7 @@ app.post('/api/executive-pdf-report', async (req, res) => {
 
   try {
     const prompt = `You are a Chief Data Officer. Given the compiled data from all stages of analysis:
-${JSON.stringify(reportData)}
+${compactJson(reportData, 5000)}
 
 Write a polished executive summary paragraph for a PDF report.
 Return strict JSON: { "executiveSummary": "Summary here..." }`;
@@ -2096,7 +2094,7 @@ app.post('/api/etl-script-generator', async (req, res) => {
 
   try {
     const prompt = `You are a Data Engineer. Given these data cleaning and transformation steps applied by the user:
-${JSON.stringify(transformations)}
+${compactJson(transformations, 3000)}
 
 Generate a complete ready-to-run Python ETL script using pandas.
 It should include:
@@ -2136,7 +2134,7 @@ app.post('/api/dashboard/auto-configure', async (req, res) => {
 
   try {
     const prompt = `You are an expert dashboard designer. Given this dataset profile:
-${JSON.stringify(profile)}
+${compactJson(profile, 4000)}
 ${customProblem ? `\nThe user explicitly stated the business problem is: ${customProblem}` : ''}
 
 Recommend the most appropriate dashboard components from this list: KPI Cards, Line Chart, Bar Chart, Pie Chart, Scatter Plot, Histogram, Heatmap Correlation Matrix, Geographic Map, Treemap, Funnel Chart, Box Plot, Area Chart, Data Table, Filters Panel, Slicers Panel.
@@ -2209,7 +2207,7 @@ app.post('/api/dashboard/insight-banner', async (req, res) => {
 
   try {
     const prompt = `You are an executive business analyst. Given this summary of the current filtered data state on a dashboard:
-${JSON.stringify(dataStateSummary)}
+${compactJson(dataStateSummary, 1500)}
 
 Return 3 bullet points of the most critical business insights visible in this current dashboard view. These should be short, concise, and highly actionable or descriptive. DO NOT return markdown formatting like '*' or '-', just the raw sentences in an array.
 
