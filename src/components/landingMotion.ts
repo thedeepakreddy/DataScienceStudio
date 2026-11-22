@@ -7,6 +7,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { HumanMover, Point } from '../swarm/humanMotion';
 import type { DataField } from './landingScene';
+import type { GpuField } from './landingGpu';
 
 // The front page's scroll choreography (GSAP + ScrollTrigger), on the page's
 // own scroller. Markup opts in with data attributes:
@@ -30,7 +31,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 type Cursor = { el: HTMLElement; mover: HumanMover; say: HTMLElement | null; role: string; pin: { el: Element; fx: number; fy: number } | null; token: number };
 
-export function initLandingMotion(root: HTMLElement, field: DataField | null, opts: { cursors: boolean }) {
+export function initLandingMotion(root: HTMLElement, field: DataField | null, opts: { cursors: boolean; gpu?: GpuField | null }) {
   const ctx = gsap.context(() => undefined, root);
   const q = <T extends Element = HTMLElement>(sel: string) => [...root.querySelectorAll<T>(sel)];
   const rnd = gsap.utils.random;
@@ -106,6 +107,28 @@ export function initLandingMotion(root: HTMLElement, field: DataField | null, op
       };
       gsap.ticker.add(tick);
       ctx.add(() => () => gsap.ticker.remove(tick));
+    });
+
+    // ---- Panels and the 3D field, as one: a panel lights up as its particle
+    // stream arrives, tilts towards the pointer and catches its light; a panel
+    // arriving fast sends a small shockwave through the field. ----
+    q('[data-stream]').forEach(el => {
+      st({ trigger: el, start: 'top 82%', end: 'bottom 18%', toggleClass: { targets: el, className: 'is-charged' },
+        onEnter: self => { if (opts.gpu && Math.abs(self.getVelocity()) > 1400) { const r = el.getBoundingClientRect(); opts.gpu.shock(((r.left + r.width / 2) / window.innerWidth) * 2 - 1, -(((r.top + r.height / 2) / window.innerHeight) * 2 - 1), 0.6); } } });
+      const panel = (el.firstElementChild as HTMLElement | null) ?? el;
+      const rx = gsap.quickTo(panel, 'rotationX', { duration: 0.6, ease: 'power3.out' });
+      const ry = gsap.quickTo(panel, 'rotationY', { duration: 0.6, ease: 'power3.out' });
+      gsap.set(panel, { transformPerspective: 1000 });
+      const move = (e: PointerEvent) => {
+        const r = panel.getBoundingClientRect();
+        const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+        rx((0.5 - fy) * 9); ry((fx - 0.5) * 11);
+        panel.style.setProperty('--mx', `${fx * 100}%`); panel.style.setProperty('--my', `${fy * 100}%`);
+      };
+      const out = () => { rx(0); ry(0); };
+      panel.addEventListener('pointermove', move);
+      panel.addEventListener('pointerleave', out);
+      ctx.add(() => () => { panel.removeEventListener('pointermove', move); panel.removeEventListener('pointerleave', out); });
     });
 
     // ---- Big numbers come down from huge. ----
@@ -266,6 +289,19 @@ export function initLandingMotion(root: HTMLElement, field: DataField | null, op
         }
       }),
     },
+    team: {
+      roles: ['orchestrator'],
+      play: () => run('orchestrator', async (c, t) => {
+        const chips = q('[data-agent-chip]').filter(visible);
+        for (const chip of [chips[0], chips[4], chips[9], chips[15]].filter(Boolean)) {
+          if (!(await visit(c, chip, `Calling the ${chip.dataset.agentChip}`, t, 0.85, 0.5))) return;
+          await press(c);
+          chip.classList.add('is-picked');
+          await wait(800);
+          chip.classList.remove('is-picked');
+        }
+      }),
+    },
     steps: {
       roles: ['data_engineer'],
       play: () => run('data_engineer', async (c, t) => {
@@ -292,7 +328,15 @@ export function initLandingMotion(root: HTMLElement, field: DataField | null, op
         onLeaveBack: () => sc.roles.forEach(r => { const c = byRole(r); if (c) leave(c); }),
       });
     });
-    setTimeout(() => { if (alive && root.scrollTop < 200) scenes.hero.play(); }, 700);
+    // The hero's agents arrive once the intro has finished.
+    const heroWhenReady = () => {
+      if (!alive) return;
+      if (root.dataset.intro === 'done') { setTimeout(() => { if (alive && root.scrollTop < 200) scenes.hero.play(); }, 900); return; }
+      const mo = new MutationObserver(() => { if (root.dataset.intro === 'done') { mo.disconnect(); heroWhenReady(); } });
+      mo.observe(root, { attributes: true, attributeFilter: ['data-intro'] });
+      ctx.add(() => () => mo.disconnect());
+    };
+    heroWhenReady();
   }
 
   const refresh = () => ScrollTrigger.refresh();

@@ -144,9 +144,13 @@ Every number shown is computed from the sample. Then the team flies into the Ask
 
 ## The front page
 
-After the loading screen and the agents' welcome, the studio opens on a dark front page. **Try for free** (top right, and throughout the page) opens the studio. Everything on it is real:
+The app opens on a dark front page (there is no separate loading screen or welcome any more). **Try for free** (top right, and throughout the page) opens the studio. Everything on it is real:
+- **The intro, in particles:** the screen opens on scattered stars that spiral into a black hole at the centre while the core pulses hotter and the camera trembles. It detonates in a shockwave, the particles write **Data Science Studio** in the brand face, then burst into the data globe as the page rises in. Any key, scroll or **Skip intro** ends it at once.
+- **Physics you can play with** (three.js on the GPU): up to 65,000 particles simulated in shaders, with springs, curl-noise flow, momentum and bloom. Scrolling throws the field with inertia and whips up turbulence. The pointer leaves a vortex wake. **Click** anywhere for a shockwave. **Hold** to open a black hole with a swirling accretion disc, and **release** to make it explode with the energy you held. Devices without a real GPU get a lighter version (fewer particles, no bloom), and browsers without float textures get the simpler CPU field.
+- **Panels and the field as one:** each panel on screen calls a stream of particles out of the field to run around its border and follow it as you scroll. Its edge lights up as the stream arrives, it tilts towards the pointer and catches a sheen of light, and a panel arriving fast sends a small shockwave through the field.
+- **Your AI team:** what the agents do (formerly the welcome) and all 23 specialists in their colours; the Orchestrator calls a few of them as the section arrives.
 - **Live panels**, as in the agents' welcome: agents move in and do the work on the welcome's 20-row sample. A question is typed and the Orchestrator answers, the engine's run log fills in, the Data Engineer types each median into its blank and the Verifier ticks the results, and the Dashboard Designer drags a chart in and widens it by its curved corner. Every value is computed from those rows. Each panel plays when it scrolls into view and loops while visible.
-- **A 3D data field behind the page** (three.js): about 6,000 points held by springs, like a liquid. As you scroll, they pour from a globe into a scatter plot (sloping as the sample's correlation does), a ring of agent clusters in their colours, seven bars for the seven steps, and a wide globe at the end. They slosh with your scroll speed, scatter from the pointer and lean towards it.
+- **The field follows the page:** as you scroll, they pour from a globe into a scatter plot (sloping as the sample's correlation does), a ring of agent clusters in their colours, seven bars for the seven steps, and a wide globe at the end. They slosh with your scroll speed, scatter from the pointer and lean towards it.
 - **Scroll choreography** (GSAP and ScrollTrigger):
   - the headline's letters fly apart as you leave the hero;
   - the panels tip up from the floor in 3D;
@@ -409,7 +413,7 @@ Free services sleep when idle. The studio wakes the ML service for you ("Wake ML
 ├── src/
 │   ├── App.tsx               Steps, toolbar, workspace state, agent wiring
 │   ├── components/           Steps and panels (Clean, Statistics, Model, Deploy, …),
-│   │                         Ask AI chat, Agents panel, cursor layer, welcome
+│   │                         Ask AI chat, Agents panel, cursor layer, front page
 │   ├── engine/               Engine client, generated contract (65 analyses), dataset sync
 │   ├── report/               Report builder, layout editor, PDF/HTML/Markdown exporters
 │   ├── swarm/                Agent team: catalog, planner, runtime, UI scripts,

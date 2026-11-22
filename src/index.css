@@ -1024,3 +1024,29 @@
 [data-landing] .is-picked { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.55), 0 0 40px -8px rgba(255,255,255,0.35) !important; background: rgba(32,32,32,0.9) !important; }
 [data-landing] .lp-outline-text { color: transparent; -webkit-text-stroke: 1.5px rgba(245,245,245,0.55); }
 [data-landing] [data-tilt], [data-landing] [data-burst], [data-landing] [data-flip], [data-landing] [data-step] { transform-style: preserve-3d; will-change: transform; }
+
+/* ---- Front page intro (landingGpu.ts): the page waits in the dark, then rises in ---- */
+[data-landing] > :not(canvas):not(.lp-intro-ui) { transition: opacity 900ms cubic-bezier(.16,.8,.24,1); }
+[data-landing][data-intro="playing"] > :not(canvas):not(.lp-intro-ui) { opacity: 0; pointer-events: none; }
+[data-landing]:not([data-intro="done"]) .lp-rise { animation: none; opacity: 0; }
+.lp-intro-ui { animation: lp-fade-in 800ms ease 600ms both; }
+@keyframes lp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- Panels and the field as one ---- */
+@property --lp-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+[data-landing] [data-tilt][data-stream] { position: relative; }
+/* A light that runs around the border when the panel's particle stream arrives. */
+[data-landing] [data-tilt][data-stream]::before {
+  content: ''; position: absolute; inset: -1px; border-radius: 23px; padding: 1px; pointer-events: none; z-index: 2;
+  background: conic-gradient(from var(--lp-a), transparent 0deg, rgba(255,255,255,0.0) 40deg, rgba(160,190,255,0.85) 80deg, rgba(255,255,255,0.95) 100deg, rgba(255,170,120,0.6) 125deg, transparent 170deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity 900ms ease; animation: lp-orbit 5s linear infinite;
+}
+[data-landing] [data-tilt][data-stream].is-charged::before { opacity: 1; }
+@keyframes lp-orbit { to { --lp-a: 360deg; } }
+/* A sheen that follows the pointer across a panel. */
+[data-landing] [data-stream] > .lp-panel::after, [data-landing] [data-stream] > div > .lp-glass::after, [data-landing] [data-stream] > .lp-glass::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 30; border-radius: inherit;
+  background: radial-gradient(520px circle at var(--mx, 50%) var(--my, -20%), rgba(255,255,255,0.075), transparent 42%);
+}
+@media (prefers-reduced-motion: reduce) { [data-landing] [data-tilt][data-stream]::before { animation: none; } }
