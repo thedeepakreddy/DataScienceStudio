@@ -28,8 +28,8 @@ export default function LoadingScreen({ onComplete }: { onComplete: () => void }
       >
         <AppIcon size={72} />
         <div className="text-center">
-          <p className="text-2xl font-semibold tracking-tight text-label">Data Science Studio</p>
-          <p className="text-sm text-label-2 mt-1">by AskDeepakAI</p>
+          <p className="font-brand text-[34px] leading-none text-label">Data Science Studio</p>
+          <p className="font-display italic text-[15px] text-label-2 mt-2" style={{ fontFamily: 'var(--font-display)' }}>by AskDeepakAI</p>
         </div>
       </motion.div>
     </motion.div>

@@ -195,7 +195,7 @@ function Card({ children, className = "", style }: { children: React.ReactNode; 
 function CardFoot({ label, onExplore }: { label: string; onExplore: () => void }) {
   return (
     <div className="absolute left-0 right-0 bottom-0 px-6 pb-5 pt-10 flex items-end justify-between" style={{ background: `linear-gradient(to top, ${C.card} 55%, transparent)` }}>
-      <span className="text-[17px]" style={{ color: C.text }}>{label}</span>
+      <span className="text-[20px] font-semibold" style={{ color: C.text, fontFamily: 'var(--font-display)' }}>{label}</span>
       <button type="button" onClick={onExplore} className="lp-link text-[17px] inline-flex items-center gap-1.5">Explore <ArrowRight className="w-4 h-4" /></button>
     </div>
   );
@@ -318,7 +318,7 @@ function Marquee() {
           <span key={k} className="inline-flex items-center" aria-hidden={k === 1}>
             {items.map(t => (
               <span key={t} className="inline-flex items-center">
-                <span className={`px-6 sm:px-10 font-medium ${outline ? 'lp-outline-text' : ''}`} style={{ fontSize: 'clamp(48px, 9vw, 132px)', letterSpacing: '-0.04em', lineHeight: 1.05 }}>{t}</span>
+                <span className={`px-6 sm:px-10 font-semibold ${outline ? 'lp-outline-text italic' : ''}`} style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(52px, 9.4vw, 140px)', letterSpacing: '-0.025em', lineHeight: 1.08 }}>{t}</span>
                 <span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full" style={{ background: outline ? 'transparent' : '#f5f5f5', border: '2px solid #f5f5f5' }} />
               </span>
             ))}
@@ -408,7 +408,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
         <div className="mx-auto max-w-[1400px] h-[68px] px-4 sm:px-6 lg:px-8 flex items-center gap-6 lg:gap-10">
           <button type="button" onClick={() => scroller.current?.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 shrink-0" aria-label="Back to the top">
             <AppIcon size={30} />
-            <span className="hidden sm:inline text-[16px] font-medium tracking-tight">Data Science Studio</span>
+            <span className="hidden sm:inline font-brand text-[20px] leading-none">Data Science Studio</span>
           </button>
           <nav className="hidden lg:flex items-center gap-8 text-[15.5px]" aria-label="Sections">
             {navItems.map(([label, id]) => <button key={id} type="button" className="lp-nav" onClick={() => goTo(id)}>{label}</button>)}
@@ -439,7 +439,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           <span className="hidden md:inline" style={{ color: C.mute }}>· open a workbook as a dashboard</span>
           <span className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: C.pill }}><ArrowUpRight className="w-3.5 h-3.5" /></span>
         </button>
-        <h1 className="mt-10 mx-auto max-w-[1100px] font-medium leading-[1.02]" style={{ fontSize: 'clamp(34px, 6.2vw, 92px)', letterSpacing: '-0.045em' }}>
+        <h1 className="mt-10 mx-auto max-w-[1150px] font-semibold leading-[1.0]" style={{ fontSize: 'clamp(36px, 6.6vw, 100px)', letterSpacing: '-0.028em' }}>
           <span className="lp-rise block" data-split style={{ animationDelay: '200ms' }}><Split text="A data science team" /></span>
           <span className="lp-rise block sm:whitespace-nowrap" data-split style={{ animationDelay: '340ms' }}><Split text="for everything you" /> <span data-cur="typed"><TypedWord /></span>.</span>
         </h1>
@@ -474,8 +474,8 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       {/* For developers */}
       <section id="lp-developers" data-scene="1" data-cursor-scene="dev" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center scroll-mt-24">
         <Reveal>
-          <p className="text-[17px]" style={{ color: C.mute }}>For developers</p>
-          <h2 data-skew className="mt-5 font-medium leading-[1.04]" style={{ fontSize: 'clamp(40px, 5.2vw, 76px)', letterSpacing: '-0.045em' }}>One engine.<br />Every method.</h2>
+          <p className="font-eyebrow text-[18px]" style={{ color: C.mute }}>For developers</p>
+          <h2 data-skew className="mt-5 font-semibold leading-[1.04]" style={{ fontSize: 'clamp(40px, 5.2vw, 76px)', letterSpacing: '-0.024em' }}>One engine.<br />Every method.</h2>
           <p className="mt-6 max-w-[620px] text-[18px] sm:text-[20px] leading-relaxed" style={{ color: '#d6d6d6' }}>
             Statistics, causal inference, machine learning, forecasting and reports, behind one API. The studio uses the same calls you can make yourself.
           </p>
@@ -485,7 +485,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           </div>
           <dl className="mt-12 flex flex-wrap gap-x-12 gap-y-6">
             {([[ENGINE_COUNT, 'Engine analyses'], [AGENT_COUNT, 'Specialist agents'], [STAGE_ORDER.length, 'Steps, in order']] as const).map(([v, l]) => (
-              <div key={l}><dt className="text-[19px]"><CountUp to={v} /></dt><dd className="mt-1 text-[16px]" style={{ color: C.dim }}>{l}</dd></div>
+              <div key={l}><dt className="font-numeral text-[26px] leading-none"><CountUp to={v} /></dt><dd className="mt-1 text-[16px]" style={{ color: C.dim }}>{l}</dd></div>
             ))}
           </dl>
         </Reveal>
@@ -497,8 +497,8 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       <section id="lp-engine" data-scene="2" data-cursor-scene="engine" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
         <Reveal className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-10 items-end">
           <div>
-            <p className="text-[17px]" style={{ color: C.mute }}>The engine</p>
-            <h2 className="mt-5 font-medium leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.045em' }}><CountUp to={ENGINE_COUNT} /> analyses,<br />{ENGINE_AREAS.length} disciplines.</h2>
+            <p className="font-eyebrow text-[18px]" style={{ color: C.mute }}>The engine</p>
+            <h2 className="mt-5 font-semibold leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.024em' }}><CountUp to={ENGINE_COUNT} /> analyses,<br />{ENGINE_AREAS.length} disciplines.</h2>
           </div>
           <p className="text-[18px] sm:text-[20px] leading-relaxed" style={{ color: '#d6d6d6' }}>
             A Python service built on scikit-learn, XGBoost, LightGBM, CatBoost, statsmodels, SciPy, SHAP, Optuna and DuckDB. Every analysis checks its inputs, records its parameters and seed, and can be reproduced as a notebook.
@@ -508,8 +508,8 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           {ENGINE_AREAS.map(a => (
             <div key={a.area} data-burst data-area={a.label} data-count={a.items.length} className="p-7 lp-area lp-glass rounded-[18px]" style={{ background: C.card }}>
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[20px] tracking-tight">{a.label}</span>
-                <span className="text-[14px] tabular-nums" style={{ color: C.dim, fontFamily: LP_MONO }}>{String(a.items.length).padStart(2, '0')}</span>
+                <span className="text-[22px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>{a.label}</span>
+                <span className="font-numeral text-[18px]" style={{ color: C.dim }}>{String(a.items.length).padStart(2, '0')}</span>
               </div>
               <ul className="mt-4 space-y-1.5 text-[14.5px] leading-snug" style={{ color: C.mute }}>
                 {a.items.slice(0, 4).map(t => <li key={t}>{t}</li>)}
@@ -523,14 +523,14 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       {/* Where it runs */}
       <section id="lp-platform" data-cursor-scene="platform" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
         <Reveal>
-          <p className="text-[17px]" style={{ color: C.mute }}>Where it runs</p>
-          <h2 className="mt-5 max-w-[900px] font-medium leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.045em' }}>Your browser, Render and Google Cloud.</h2>
+          <p className="font-eyebrow text-[18px]" style={{ color: C.mute }}>Where it runs</p>
+          <h2 className="mt-5 max-w-[900px] font-semibold leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.024em' }}>Your browser, Render and Google Cloud.</h2>
         </Reveal>
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5" style={{ perspective: 1200 }}>
           {PLATFORM.map(p => (
             <div key={p.name} data-flip data-platform={`${p.name} · ${p.where}`} className="lp-tile lp-glass rounded-[22px] p-7 flex flex-col min-h-[300px]" style={{ background: C.card }}>
               <span className="text-[12px] uppercase tracking-[0.18em]" style={{ color: C.dim, fontFamily: LP_MONO }}>{p.where}</span>
-              <span className="mt-4 text-[24px] tracking-tight">{p.name}</span>
+              <span className="mt-4 text-[26px] font-semibold leading-tight" style={{ fontFamily: 'var(--font-display)' }}>{p.name}</span>
               <p className="mt-3 text-[15px] leading-relaxed" style={{ color: C.mute }}>{p.what}</p>
               <p className="mt-auto pt-6 text-[13px] leading-relaxed" style={{ color: C.dim, fontFamily: LP_MONO }}>{p.stack}</p>
             </div>
@@ -545,7 +545,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
             [AGENT_COUNT, 'specialists who plan, do and check the work, step by step'],
             [0, 'numbers written by AI: it writes words, plans and code, never metrics']] as const).map(([v, l], i) => (
             <Reveal key={l} className={`pt-14 pb-6 ${i ? 'md:pl-16' : ''} ${i < 2 ? 'md:border-r' : ''}`} style={{ borderColor: C.line }}>
-              <p data-bignum className="font-medium leading-none" style={{ fontSize: 'clamp(64px, 8vw, 110px)', letterSpacing: '-0.05em' }}><CountUp to={v} duration={1800} /></p>
+              <p data-bignum className="font-numeral leading-none" style={{ fontSize: 'clamp(72px, 9vw, 128px)', letterSpacing: '-0.03em' }}><CountUp to={v} duration={1800} /></p>
               <p className="mt-6 max-w-[340px] text-[17px] leading-relaxed" style={{ color: C.mute }}>{l}</p>
             </Reveal>
           ))}
@@ -554,16 +554,16 @@ export default function Landing({ onStart }: { onStart: () => void }) {
 
       {/* The seven steps */}
       <section id="lp-steps" data-scene="3" data-hscroll data-cursor-scene="steps" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-32 scroll-mt-24 lg:overflow-hidden" style={{ perspective: 1600 }}>
-        <Reveal as="div"><h2 className="font-medium leading-[1.05]" style={{ fontSize: 'clamp(36px, 4.4vw, 60px)', letterSpacing: '-0.04em' }}>Seven steps, in order.</h2></Reveal>
+        <Reveal as="div"><h2 className="font-semibold leading-[1.05]" style={{ fontSize: 'clamp(36px, 4.4vw, 60px)', letterSpacing: '-0.024em' }}>Seven steps, in order.</h2></Reveal>
         <div data-track className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-5 lg:flex lg:w-max lg:pr-8">
           {STAGE_ORDER.map((s, i) => {
             const st = STAGES[s];
             const Icon = st.icon;
             return (
               <div key={s} data-step={i + 1} className="lg:w-[360px] lg:shrink-0"><button type="button" onClick={start} className="w-full h-full lp-step lp-glass text-left rounded-[22px] p-6 flex flex-col min-h-[220px] lg:min-h-[340px]" style={{ background: C.card }}>
-                <span className="flex items-center justify-between"><span className="text-[13px] tabular-nums" style={{ color: C.dim }}>0{i + 1}</span><Icon className="w-5 h-5" style={{ color: C.mute }} /></span>
+                <span className="flex items-center justify-between"><span className="font-numeral text-[20px]" style={{ color: C.dim }}>0{i + 1}</span><Icon className="w-5 h-5" style={{ color: C.mute }} /></span>
                 <span className="mt-auto pt-8 block min-h-[118px]">
-                  <span className="block text-[22px] tracking-tight">{st.label}</span>
+                  <span className="block text-[26px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>{st.label}</span>
                   <span className="block mt-2 text-[14.5px] leading-relaxed" style={{ color: C.mute }}>{st.description}</span>
                 </span>
               </button></div>
@@ -572,7 +572,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           <div className="lg:w-[360px] lg:shrink-0"><button type="button" onClick={start} className="w-full h-full lp-step rounded-[22px] p-6 flex flex-col min-h-[220px] lg:min-h-[340px] text-left bg-white text-black">
             <span className="text-[13px] opacity-60">Start</span>
             <span className="mt-auto pt-8 block min-h-[118px]">
-              <span className="text-[22px] tracking-tight inline-flex items-center gap-2">Open the studio <ArrowRight className="w-5 h-5" /></span>
+              <span className="text-[26px] font-semibold inline-flex items-center gap-2" style={{ fontFamily: 'var(--font-display)' }}>Open the studio <ArrowRight className="w-5 h-5" /></span>
               <span className="block mt-2 text-[14.5px] opacity-60">Import a file, or try a sample.</span>
             </span>
           </button></div>
@@ -586,7 +586,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           { title: 'Run it your way', sub: 'Open source, on your own machines:', items: ['The full source on GitHub', 'One command with Docker', 'The engine on Cloud Run, the studio anywhere', 'Notebooks that reproduce every run'], cta: 'View on GitHub', primary: false },
         ]).map((p, i) => (
           <div key={p.title} data-from={i ? 'right' : 'left'}><Card className="h-full p-8 sm:p-16 flex flex-col">
-            <h3 className="text-[30px] sm:text-[38px] tracking-tight">{p.title}</h3>
+            <h3 className="text-[32px] sm:text-[42px] font-semibold leading-tight">{p.title}</h3>
             <p className="mt-3 text-[18px] sm:text-[20px]" style={{ color: '#d6d6d6' }}>{p.sub}</p>
             <div className="my-9 h-px" style={{ background: C.line }} />
             <ul className="space-y-4 text-[17px] sm:text-[19px]">
@@ -603,12 +603,12 @@ export default function Landing({ onStart }: { onStart: () => void }) {
 
       {/* Footer */}
       <div data-wordmark aria-hidden="true" className="relative z-10 mt-40 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <p className="mx-auto max-w-[1400px] font-medium leading-[0.9] whitespace-nowrap" style={{ fontSize: 'clamp(40px, 10.6vw, 184px)', letterSpacing: '-0.055em' }}><Split text="Data Science Studio" /></p>
+        <p className="mx-auto max-w-[1400px] font-brand leading-[0.9] whitespace-nowrap" style={{ fontSize: 'clamp(40px, 10.4vw, 180px)', letterSpacing: '-0.02em' }}><Split text="Data Science Studio" /></p>
       </div>
       <footer className="relative z-10 mt-10" style={{ borderTop: `1px solid ${C.line}`, background: 'rgba(11,11,11,0.92)' }}>
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-16 grid grid-cols-1 lg:grid-cols-[1fr_2.2fr] gap-12">
           <div className="lg:border-r lg:border-dashed pr-8" style={{ borderColor: C.line }}>
-            <div className="flex items-center gap-2.5"><AppIcon size={28} /><span className="text-[17px] font-medium tracking-tight">Data Science Studio</span></div>
+            <div className="flex items-center gap-2.5"><AppIcon size={28} /><span className="font-brand text-[20px] leading-none">Data Science Studio</span></div>
             <p className="mt-4 text-[14px]" style={{ color: C.mute }}>© {new Date().getFullYear()} AskDeepakAI · Deepak Reddy</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-[16px]">

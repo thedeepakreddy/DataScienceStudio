@@ -13,10 +13,10 @@ export default function StageHeader({ activeTab }: StageHeaderProps) {
 
   return (
     <header className="mb-8 sm:mb-10">
-      <p className="text-sm font-medium text-label-2">
+      <p className="font-eyebrow text-[18px] leading-none text-label-2">
         Step {STAGE_ORDER.indexOf(activeTab) + 1} of {STAGE_ORDER.length}
       </p>
-      <h1 className="mt-1 text-[32px] sm:text-[40px] leading-[1.1] font-semibold tracking-tight text-label">
+      <h1 className="mt-1.5 text-[36px] sm:text-[48px] leading-[1.04] font-semibold text-label">
         {stage.title}
       </h1>
       <p className="mt-3 text-base sm:text-[19px] sm:leading-[1.42] text-label-2 max-w-2xl">

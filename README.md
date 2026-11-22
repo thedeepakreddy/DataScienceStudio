@@ -289,7 +289,7 @@ The agents work in both.
 | Area | Technology |
 |---|---|
 | UI | React 19, TypeScript, Vite 6, Tailwind CSS v4, Motion, Recharts, Lucide; three.js and GSAP (ScrollTrigger) for the front page |
-| Type | SF Pro / Inter for the studio; Source Serif 4 for the welcome; Geist and Geist Mono for the front page |
+| Type | **Zilla Slab** for the app's name, big figures (KPIs, counts, scores) and small-caps labels; **Source Serif 4** (optical sizes) for page, section and card titles and the front page headlines; SF Pro / Inter for controls, tables and body text; Geist for the front page's body; all self-hosted under the SIL Open Font License (`public/fonts`) |
 | In-browser data | AlaSQL (read-only SQL), read-excel-file, hyparquet, mathjs |
 | Storage | IndexedDB |
 | Server | Node.js, Express, esbuild bundle |

@@ -218,7 +218,7 @@ function CustomKpiCard({ kpi, columns, onRemove }: { kpi: KpiDefinition; columns
       {'error' in result ? (
         <span className="mt-1 text-sm text-red">{result.error}</span>
       ) : (
-        <span className="mt-1 text-[28px] leading-none font-semibold tracking-tight tabular-nums text-label">{formatKpi(result.value ?? null, kpi.format)}</span>
+        <span className="mt-1 text-[30px] leading-none font-numeral tabular-nums text-label">{formatKpi(result.value ?? null, kpi.format)}</span>
       )}
       <span className="mt-auto pt-3 text-[11px] text-label-3 font-code truncate" title={kpi.formula}>{kpi.formula}</span>
     </div>

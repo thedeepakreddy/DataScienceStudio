@@ -336,7 +336,7 @@ export default function MLPipeline({
         {edaFit.isReal && edaFit.primaryValue !== null && edaFit.primaryValue !== undefined ? (
           <div className="rounded-xl bg-well px-5 py-3 shrink-0">
             <p className="text-xs text-label-2">{edaFit.primaryLabel} on test data</p>
-            <p className="mt-0.5 text-[28px] leading-none font-semibold tracking-tight tabular-nums text-label">
+            <p className="mt-0.5 text-[30px] leading-none font-numeral tabular-nums text-label">
               {edaFit.primaryLabel === 'Accuracy' ? `${(edaFit.primaryValue * 100).toFixed(1)}%` : edaFit.primaryValue.toFixed(3)}
             </p>
           </div>
@@ -1348,7 +1348,7 @@ export default function MLPipeline({
                       {mlResult.comparison && mlResult.comparison[0] && (
                         <div className="pt-6 mt-8 border-t border-green/20">
                           <p className="text-[11px] text-green font-medium mb-1">Winning {mlResult.comparison[0].primaryMetric}</p>
-                          <p className="text-3xl font-semibold text-green tabular-nums tracking-tighter">
+                          <p className="text-3xl font-semibold text-green tabular-nums tracking-tighter font-numeral">
                             {mlResult.comparison[0].primaryMetric.toLowerCase().includes('accuracy')
                               ? `${(mlResult.comparison[0].metricValue * 100).toFixed(2)}%`
                               : mlResult.comparison[0].metricValue.toFixed(3)}
