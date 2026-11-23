@@ -1,4 +1,4 @@
-# AskDeepakAI · Data Science Studio
+#  Data Science Studio
 
 [![CI](https://github.com/thedeepakreddy/DataScienceStudio-AskDeepakAI/actions/workflows/ci.yml/badge.svg)](https://github.com/thedeepakreddy/DataScienceStudio-AskDeepakAI/actions/workflows/ci.yml)
 
