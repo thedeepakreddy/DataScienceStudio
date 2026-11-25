@@ -404,6 +404,8 @@ Details: [`docs/DEPLOY_ENGINE.md`](docs/DEPLOY_ENGINE.md). Both can also run on 
 
 Free services sleep when idle. The studio wakes the ML service for you ("Wake ML Engine" in the toolbar, and automatically when an agent needs it). The first request after a sleep can take about a minute.
 
+**Staying awake on the free tier.** Render sleeps a free web service after 15 minutes without traffic. The studio keeps itself awake: while it runs it pings its own public `/healthz` every 10 minutes (Render sets `RENDER_EXTERNAL_URL`; elsewhere set `KEEP_AWAKE_URL`, and `KEEP_AWAKE=0` turns it off). `KEEP_AWAKE_EXTRA_URLS` (comma-separated) keeps other services awake too, such as an ML service on Render. As an outside backup that also wakes it after a restart, the **Keep awake** GitHub Actions workflow (`.github/workflows/keep-awake.yml`) pings every address in the repository variable `KEEP_AWAKE_URLS` every 10 minutes. One always-on service uses about 744 of Render's 750 free hours a month, so keep only one free service awake per account.
+
 ---
 
 ## Project structure
