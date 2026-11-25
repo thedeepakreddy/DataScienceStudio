@@ -698,6 +698,12 @@ app.post('/api/ml-service/wake', async (_req, res) => {
   }
 });
 
+// A tiny "I'm up" answer for uptime pingers (GitHub Actions, UptimeRobot, the
+// self-ping below). It touches nothing, so pinging it often costs nothing.
+app.get('/healthz', (_req, res) => {
+  res.set('Cache-Control', 'no-store').json({ ok: true, uptimeSeconds: Math.round(process.uptime()) });
+});
+
 // Lightweight, non-blocking status probe. Unlike /wake this never retries, so
 // the UI can poll it cheaply to show whether the service is still warm.
 app.get('/api/ml-service/status', async (_req, res) => {
@@ -2448,6 +2454,29 @@ app.all('/api/engine/*', async (req, res) => {
   }
 });
 
+// Render's free tier puts a web service to sleep after 15 minutes without
+// inbound traffic, and the next visitor waits ~1 minute for it to wake. While
+// running, ping our own public address (through Render's edge, so it counts as
+// traffic) every 10 minutes. Render sets RENDER_EXTERNAL_URL itself; elsewhere
+// set KEEP_AWAKE_URL, and KEEP_AWAKE=0 turns this off. KEEP_AWAKE_EXTRA_URLS
+// (comma-separated) keeps other free services awake too, e.g. the ML service.
+const KEEP_AWAKE_INTERVAL_MS = 10 * 60 * 1000;
+function startKeepAwake() {
+  if (process.env.KEEP_AWAKE === '0') return;
+  const self = (process.env.KEEP_AWAKE_URL || process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/+$/, '');
+  const extra = (process.env.KEEP_AWAKE_EXTRA_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
+  const targets = [...(self ? [`${self}/healthz`] : []), ...extra];
+  if (targets.length === 0) return;
+  const ping = () => {
+    for (const url of targets) {
+      fetch(url, { signal: AbortSignal.timeout(30000), headers: { 'User-Agent': 'keep-awake' } })
+        .catch(err => console.warn(`[keep-awake] ${url} failed: ${err?.message ?? err}`));
+    }
+  };
+  console.log(`[keep-awake] pinging every 10 min: ${targets.join(', ')}`);
+  setInterval(ping, KEEP_AWAKE_INTERVAL_MS).unref();
+}
+
 async function start() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -2470,6 +2499,7 @@ async function start() {
     refreshGeminiModels(true).catch(() => {});
     setInterval(() => { refreshGeminiModels(true).catch(() => {}); }, 24 * 60 * 60 * 1000).unref();
   }
+  startKeepAwake();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[AskDeepakAI Working Server] Running on http://localhost:${PORT}`);
   });
