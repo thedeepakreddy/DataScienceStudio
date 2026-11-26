@@ -109,7 +109,9 @@ gcloud run deploy "$SERVICE" --source . --region "$REGION" --service-account "$S
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 
 say "Checking the studio at $URL"
-curl -fsS "$URL/healthz" >/dev/null && echo "  /healthz ✓" || die "The studio didn't answer at $URL/healthz. See: gcloud run services logs read $SERVICE --region $REGION"
+# Not /healthz: Cloud Run's front end keeps paths ending in "z" for itself and answers 404.
+curl -fsS -o /dev/null "$URL/" && echo "  studio page ✓" || die "The studio didn't answer at $URL. See: gcloud run services logs read $SERVICE --region $REGION"
+curl -fsS "$URL/api/ai/status" >/dev/null && echo "  /api/ai/status ✓"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/engine/info")
 echo "  /api/engine/info -> $code (200 means the studio reaches the engine; the first call can take a minute while the engine wakes)"
 
