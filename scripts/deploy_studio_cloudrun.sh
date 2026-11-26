@@ -13,6 +13,8 @@
 #
 # Optional settings, passed the same way as PROJECT_ID (kept on reruns if left out):
 #   ARC_BASE_URL, ARC_USER_URL, ARC_MODEL, GEMINI_MODEL_TIER
+#   CUSTOM_DOMAIN  your own address for the studio (e.g. www.example.com), mapped with
+#                  gcloud beta run domain-mappings; it is added to the bucket's upload origins
 set -euo pipefail
 
 REGION="${REGION:-us-central1}"
@@ -109,7 +111,9 @@ gcloud run deploy "$SERVICE" --source . --region "$REGION" --service-account "$S
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 
 say "Checking the studio at $URL"
-curl -fsS "$URL/healthz" >/dev/null && echo "  /healthz ✓" || die "The studio didn't answer at $URL/healthz. See: gcloud run services logs read $SERVICE --region $REGION"
+# Not /healthz: Cloud Run's front end keeps paths ending in "z" for itself and answers 404.
+curl -fsS -o /dev/null "$URL/" && echo "  studio page ✓" || die "The studio didn't answer at $URL. See: gcloud run services logs read $SERVICE --region $REGION"
+curl -fsS "$URL/api/ai/status" >/dev/null && echo "  /api/ai/status ✓"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/engine/info")
 echo "  /api/engine/info -> $code (200 means the studio reaches the engine; the first call can take a minute while the engine wakes)"
 
@@ -120,7 +124,7 @@ BUCKET="gs://${PROJECT_ID}-engine"
 if gcloud storage buckets describe "$BUCKET" >/dev/null 2>&1; then
   NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
   EXISTING=$(gcloud storage buckets describe "$BUCKET" --format=json 2>/dev/null || echo '{}')
-  python3 - "$EXISTING" "$URL" "https://${SERVICE}-${NUMBER}.${REGION}.run.app" > /tmp/studio-cors.json <<'EOF'
+  python3 - "$EXISTING" "$URL" "https://${SERVICE}-${NUMBER}.${REGION}.run.app" ${CUSTOM_DOMAIN:+"https://${CUSTOM_DOMAIN#https://}"} > /tmp/studio-cors.json <<'EOF'
 import json, sys
 desc = json.loads(sys.argv[1] or "{}")
 rules = desc.get("cors_config") or desc.get("cors") or []
@@ -130,7 +134,7 @@ for o in sys.argv[2:]:
         origins.append(o)
 print(json.dumps([{"origin": origins, "method": ["PUT"], "responseHeader": ["Content-Type"], "maxAgeSeconds": 3600}]))
 EOF
-  gcloud storage buckets update "$BUCKET" --cors-file=/tmp/studio-cors.json >/dev/null && echo "  bucket accepts direct uploads from $URL"
+  gcloud storage buckets update "$BUCKET" --cors-file=/tmp/studio-cors.json >/dev/null && echo "  bucket accepts direct uploads from $URL${CUSTOM_DOMAIN:+ and https://${CUSTOM_DOMAIN#https://}}"
 fi
 
 say "Done"
