@@ -13,6 +13,8 @@
 #
 # Optional settings, passed the same way as PROJECT_ID (kept on reruns if left out):
 #   ARC_BASE_URL, ARC_USER_URL, ARC_MODEL, GEMINI_MODEL_TIER
+#   CUSTOM_DOMAIN  your own address for the studio (e.g. www.example.com), mapped with
+#                  gcloud beta run domain-mappings; it is added to the bucket's upload origins
 set -euo pipefail
 
 REGION="${REGION:-us-central1}"
@@ -122,7 +124,7 @@ BUCKET="gs://${PROJECT_ID}-engine"
 if gcloud storage buckets describe "$BUCKET" >/dev/null 2>&1; then
   NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
   EXISTING=$(gcloud storage buckets describe "$BUCKET" --format=json 2>/dev/null || echo '{}')
-  python3 - "$EXISTING" "$URL" "https://${SERVICE}-${NUMBER}.${REGION}.run.app" > /tmp/studio-cors.json <<'EOF'
+  python3 - "$EXISTING" "$URL" "https://${SERVICE}-${NUMBER}.${REGION}.run.app" ${CUSTOM_DOMAIN:+"https://${CUSTOM_DOMAIN#https://}"} > /tmp/studio-cors.json <<'EOF'
 import json, sys
 desc = json.loads(sys.argv[1] or "{}")
 rules = desc.get("cors_config") or desc.get("cors") or []
@@ -132,7 +134,7 @@ for o in sys.argv[2:]:
         origins.append(o)
 print(json.dumps([{"origin": origins, "method": ["PUT"], "responseHeader": ["Content-Type"], "maxAgeSeconds": 3600}]))
 EOF
-  gcloud storage buckets update "$BUCKET" --cors-file=/tmp/studio-cors.json >/dev/null && echo "  bucket accepts direct uploads from $URL"
+  gcloud storage buckets update "$BUCKET" --cors-file=/tmp/studio-cors.json >/dev/null && echo "  bucket accepts direct uploads from $URL${CUSTOM_DOMAIN:+ and https://${CUSTOM_DOMAIN#https://}}"
 fi
 
 say "Done"

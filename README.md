@@ -393,7 +393,7 @@ PROJECT_ID=<your-project> bash scripts/deploy_studio_cloudrun.sh                
 - asks, at hidden prompts, for the studio's ARC key and an optional Gemini key, and keeps them in Secret Manager (press Enter on a rerun to keep the saved ones). `ARC_BASE_URL`, `ARC_USER_URL`, `ARC_MODEL` and `GEMINI_MODEL_TIER` can be passed as environment variables;
 - runs one instance (`--max-instances 1`), because the results of long requests are kept in the server's memory until the browser collects them. CPU stays on between requests (`--no-cpu-throttling`) so those jobs keep running, and with `--min-instances 0` an idle studio shuts down after about 15 minutes and costs nothing;
 - turns keep-awake pings off (`KEEP_AWAKE=0`): Cloud Run starts in seconds, and pinging would keep an instance running all month;
-- adds the studio's address to the engine bucket's CORS rule, for direct uploads of large files.
+- adds the studio's address to the engine bucket's CORS rule, for direct uploads of large files. With your own domain, pass it as `CUSTOM_DOMAIN=www.example.com` so uploads work from there too, and map it with `gcloud beta run domain-mappings create --service askdeepakai-studio --domain www.example.com --region us-central1` (verify the domain first with `gcloud domains verify`).
 
 Rerun either script after a code change (`git pull` first). Details: [`docs/DEPLOY_ENGINE.md`](docs/DEPLOY_ENGINE.md).
 
