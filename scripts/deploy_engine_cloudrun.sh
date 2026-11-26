@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Deploys the AskDeepakAI engine to Google Cloud Run and points the Render studio at it.
+# Deploys the AskDeepakAI engine to Google Cloud Run and points a Render studio at it.
+# If the studio runs on Cloud Run too, use SKIP_RENDER=1 and then scripts/deploy_studio_cloudrun.sh,
+# which reads the engine's address and token itself.
 #
 # Run it in Google Cloud Shell (already logged in to gcloud):
 #   git clone https://github.com/thedeepakreddy/DataScienceStudio-AskDeepakAI.git
@@ -99,7 +101,7 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/v2/info")
 
 # ---------------------------------------------------------------- Render
 if [ "${SKIP_RENDER:-}" = "1" ]; then
-  say "Done (engine updated; the Render studio already points at $URL)"
+  say "Done (engine updated at $URL; the studio finds it there)"
   exit 0
 fi
 say "Connecting the Render studio"

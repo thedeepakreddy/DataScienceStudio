@@ -6,6 +6,9 @@ name: Keep awake
 # (Settings → Secrets and variables → Actions → Variables) to one or more
 # space- or comma-separated addresses, e.g. https://your-studio.onrender.com/healthz
 #
+# Don't list a Cloud Run address here: Cloud Run starts in seconds, and a ping every
+# 10 minutes would keep an instance running (and billed) all month.
+#
 # GitHub may delay scheduled runs, and pauses them after 60 days without
 # repository activity; re-enable from the Actions tab if that happens.
 

@@ -42,7 +42,7 @@ const ENGINE_AREAS = Object.values(ENGINE_CAPABILITIES as Record<string, { area:
 /** The real deployment (README → Deploy, docs/DEPLOY_ENGINE.md). */
 const PLATFORM = [
   { where: 'Your browser', name: 'The studio', what: 'Your work is saved in your browser: datasets, versions, runs, dashboards and models. Export it or clear it whenever you like.', stack: 'React 19 · TypeScript · IndexedDB' },
-  { where: 'Render', name: 'The web server', what: 'Serves the studio, routes AI requests and wakes the engine when it sleeps. It keeps no data.', stack: 'Node.js · Express' },
+  { where: 'Google Cloud Run · us-central1', name: 'The web server', what: 'Serves the studio, routes AI requests and wakes the engine when it sleeps. It scales to zero when idle and keeps no data.', stack: 'Node.js · Express' },
   { where: 'Google Cloud Run · us-central1', name: 'The engine', what: 'Runs every analysis and model, scales to zero when idle, and is woken on demand. A scheduler runs saved pipelines every 15 minutes.', stack: 'Python 3.13 · FastAPI · Docker' },
   { where: 'Google Cloud Storage', name: 'Large files', what: 'Files of several GB go straight to storage and are kept as compressed Parquet: a 265 MB CSV is stored as 26 MB.', stack: 'Parquet · DuckDB' },
   { where: 'AI routing', name: 'ARC, then Gemini', what: 'Plans and narration go to ARC first, then Gemini, or to your own keys. AI writes words, plans and code; never the numbers.', stack: 'ARC · Gemini · your own keys' },
@@ -649,7 +649,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       <section id="lp-platform" data-cursor-scene="platform" className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 mt-36 scroll-mt-24">
         <Reveal>
           <p className="font-eyebrow text-[18px]" style={{ color: C.mute }}>Where it runs</p>
-          <h2 className="mt-5 max-w-[900px] font-semibold leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.024em' }}>Your browser, Render and Google Cloud.</h2>
+          <h2 className="mt-5 max-w-[900px] font-semibold leading-[1.04]" style={{ fontSize: 'clamp(38px, 4.8vw, 68px)', letterSpacing: '-0.024em' }}>Your browser and Google Cloud.</h2>
         </Reveal>
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5" style={{ perspective: 1200 }}>
           {PLATFORM.map(p => (
