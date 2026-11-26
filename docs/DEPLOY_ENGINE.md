@@ -1,11 +1,12 @@
 # Deploying the engine to Google Cloud Run
 
-The studio stays on Render; the Python engine (`mlops_service/`) runs on
-Google Cloud Run. The studio's server calls the engine with a shared secret,
+The Python engine (`mlops_service/`) runs on Google Cloud Run. The studio runs
+there too (`scripts/deploy_studio_cloudrun.sh`, see the README's Deploy section),
+or on Render. The studio's server calls the engine with a shared secret,
 and browsers never talk to the engine directly.
 
 ```
-browser ──▶ studio (Render, server.ts) ──HTTPS + X-Engine-Token──▶ engine (Cloud Run)
+browser ──▶ studio (Cloud Run or Render, server.ts) ──HTTPS + X-Engine-Token──▶ engine (Cloud Run)
                                                                       │
                                                     Cloud Storage bucket (datasets, models,
                                                     results, runs, monitoring, audit log)
@@ -177,9 +178,9 @@ gcloud scheduler jobs create http engine-tick --location us-central1 --schedule=
   --headers="X-Engine-Token=$(gcloud secrets versions access latest --secret=engine-token)"
 ```
 
-### 7. Point the studio at it (Render)
+### 7. Point the studio at it
 
-In the Render dashboard, under the studio service's **Environment**, set:
+On Cloud Run, `scripts/deploy_studio_cloudrun.sh` does this for you. On Render, in the dashboard, under the studio service's **Environment**, set:
 
 | Variable | Value |
 |---|---|

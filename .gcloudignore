@@ -1,0 +1,18 @@
+# What `gcloud run deploy --source .` leaves out of the studio's upload
+# (scripts/deploy_studio_cloudrun.sh). The Dockerfile installs and builds inside Cloud Build.
+.gcloudignore
+.git
+.github
+.vscode
+node_modules/
+dist/
+build/
+coverage/
+mlops_service/
+docs/screenshots/
+*.log
+.env*
+!.env.example
+serviceAccountKey.json
+deepakllm_training_data.jsonl
+.engine-token

@@ -39,7 +39,7 @@
   - Simple data work runs in the browser.
   - Gemini writes words, plans and code. It is never the source of a metric.
 - **Few AI calls:** common requests are planned by built-in rules with **zero** AI calls. Anything else takes one call.
-- **Free to host:** your work lives in your browser (IndexedDB) and the servers are stateless, so it runs on Render's free tier.
+- **Free to host:** your work lives in your browser (IndexedDB) and the servers are stateless, so it runs within Google Cloud Run's free allowance (or on Render's free tier).
 - **Stack:** React 19 + TypeScript + Vite + Tailwind v4 · Node/Express · Python FastAPI · ARC (AI routing), with Google Gemini as the backup.
 
 ---
@@ -168,7 +168,7 @@ The app opens on a dark front page (there is no separate loading screen or welco
 - **Motion throughout:** the counts count up and the API code types itself out. three.js and GSAP load separately, only for this page. With reduced motion, the field is still and everything shows its finished state.
 - **Ask AI** shows the studio's own thinking orb, cycling through the states it uses (waiting, planning, running an analysis, training, writing) inside a turning glass sphere.
 - **The engine** lists its analyses by discipline, counted from the engine contract, with sample code (Python, TypeScript, cURL) for the real API.
-- **Where it runs** describes the deployment: your browser, the web server on Render, the engine on Google Cloud Run, Cloud Storage for large files, and AI routing (ARC, then Gemini, or your own keys).
+- **Where it runs** describes the deployment: your browser, the web server and the engine on Google Cloud Run, Cloud Storage for large files, and AI routing (ARC, then Gemini, or your own keys).
 - **The seven steps**, the agents and links to the source.
 
 ## The seven steps
@@ -286,7 +286,7 @@ The agents work in both.
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Why the browser stores the work:** Render's free services lose their disk on restart and sleep when idle, so nothing is kept on the servers. The same entities can move to a server database later without changing the UI.
+**Why the browser stores the work:** Cloud Run (and Render's free tier) keep no disk between restarts and scale to zero when idle, so nothing is kept on the servers. The same entities can move to a server database later without changing the UI.
 
 ---
 
@@ -379,14 +379,25 @@ The studio is at `http://localhost:3000` and the ML service at `http://localhost
 
 ## Deploy
 
-The studio runs on Render and the engine on Google Cloud Run. To redeploy the engine from Cloud Shell:
+The studio and the engine both run on Google Cloud Run, in the same project and region. From [Cloud Shell](https://shell.cloud.google.com), deploy the engine first, then the studio:
 
 ```bash
 git clone https://github.com/thedeepakreddy/DataScienceStudio-AskDeepakAI.git && cd DataScienceStudio-AskDeepakAI
-SKIP_RENDER=1 PROJECT_ID=<your-project> bash scripts/deploy_engine_cloudrun.sh
+SKIP_RENDER=1 PROJECT_ID=<your-project> bash scripts/deploy_engine_cloudrun.sh   # the engine
+PROJECT_ID=<your-project> bash scripts/deploy_studio_cloudrun.sh                  # the studio
 ```
 
-Details: [`docs/DEPLOY_ENGINE.md`](docs/DEPLOY_ENGINE.md). Both can also run on Render's free tier:
+`deploy_studio_cloudrun.sh` builds the root `Dockerfile` with Cloud Build and deploys it as the `askdeepakai-studio` service. It:
+
+- points the studio at the engine (`ML_SERVICE_URL`, and `ENGINE_TOKEN` from the engine's Secret Manager secret);
+- asks, at hidden prompts, for the studio's ARC key and an optional Gemini key, and keeps them in Secret Manager (press Enter on a rerun to keep the saved ones). `ARC_BASE_URL`, `ARC_USER_URL`, `ARC_MODEL` and `GEMINI_MODEL_TIER` can be passed as environment variables;
+- runs one instance (`--max-instances 1`), because the results of long requests are kept in the server's memory until the browser collects them. CPU stays on between requests (`--no-cpu-throttling`) so those jobs keep running, and with `--min-instances 0` an idle studio shuts down after about 15 minutes and costs nothing;
+- turns keep-awake pings off (`KEEP_AWAKE=0`): Cloud Run starts in seconds, and pinging would keep an instance running all month;
+- adds the studio's address to the engine bucket's CORS rule, for direct uploads of large files.
+
+Rerun either script after a code change (`git pull` first). Details: [`docs/DEPLOY_ENGINE.md`](docs/DEPLOY_ENGINE.md).
+
+**On Render instead.** Both can also run on Render's free tier:
 
 **1. ML service.** A **Web Service** from this repo:
 - Root directory: `mlops_service`
@@ -404,7 +415,7 @@ Details: [`docs/DEPLOY_ENGINE.md`](docs/DEPLOY_ENGINE.md). Both can also run on 
 
 Free services sleep when idle. The studio wakes the ML service for you ("Wake ML Engine" in the toolbar, and automatically when an agent needs it). The first request after a sleep can take about a minute.
 
-**Staying awake on the free tier.** Render sleeps a free web service after 15 minutes without traffic. The studio keeps itself awake: while it runs it pings its own public `/healthz` every 10 minutes (Render sets `RENDER_EXTERNAL_URL`; elsewhere set `KEEP_AWAKE_URL`, and `KEEP_AWAKE=0` turns it off). `KEEP_AWAKE_EXTRA_URLS` (comma-separated) keeps other services awake too, such as an ML service on Render. As an outside backup that also wakes it after a restart, the **Keep awake** GitHub Actions workflow (`.github/workflows/keep-awake.yml`) pings every address in the repository variable `KEEP_AWAKE_URLS` every 10 minutes. One always-on service uses about 744 of Render's 750 free hours a month, so keep only one free service awake per account.
+**Staying awake on Render's free tier.** Render sleeps a free web service after 15 minutes without traffic. The studio keeps itself awake: while it runs it pings its own public `/healthz` every 10 minutes (Render sets `RENDER_EXTERNAL_URL`; elsewhere set `KEEP_AWAKE_URL`, and `KEEP_AWAKE=0` turns it off). `KEEP_AWAKE_EXTRA_URLS` (comma-separated) keeps other services awake too, such as an ML service on Render. As an outside backup that also wakes it after a restart, the **Keep awake** GitHub Actions workflow (`.github/workflows/keep-awake.yml`) pings every address in the repository variable `KEEP_AWAKE_URLS` every 10 minutes. One always-on service uses about 744 of Render's 750 free hours a month, so keep only one free service awake per account. Don't list Cloud Run addresses in `KEEP_AWAKE_URLS`.
 
 ---
 
