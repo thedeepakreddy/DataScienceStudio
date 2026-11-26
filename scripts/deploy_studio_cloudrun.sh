@@ -141,6 +141,4 @@ say "Done"
 echo "  Studio:  $URL"
 echo "  Engine:  $ENGINE_URL"
 echo
-echo "  If the GitHub 'Keep awake' workflow pings this address (repository variable KEEP_AWAKE_URLS),"
-echo "  remove it there: on Cloud Run a ping every 10 minutes keeps an instance running all month."
 echo "  Your own domain: Cloud Run → $SERVICE → Integrations / Domain mappings."
